@@ -1,0 +1,12 @@
+{
+  "name": "frock-dev/toolkit-laravel",
+  "description": "Toolkit to boost your development with Laravel and frock.dev",
+  "autoload": {
+    "psr-4": {
+      "FrockDev\\ToolkitLaravel\\": "src/"
+    }
+  },
+  "require": {
+    "spiral/roadrunner-laravel": "v5.12.0"
+  }
+}
