@@ -1,6 +1,6 @@
 <?php
 
-$composerJson = json_decode(file_get_contents(getcwd().'/php/composer.json'), true);
+$composerJson = json_decode(file_get_contents(getcwd().'/composer.json'), true);
 
 if (getenv('REVERSE')=='0') {
     if (!isset($composerJson['repositories']['frock_laravel']))
@@ -24,4 +24,4 @@ if (getenv('REVERSE')=='0') {
 $resultJson = json_encode($composerJson, JSON_PRETTY_PRINT);
 $resultJson = str_replace('\\/', '/', $resultJson);
 
-file_put_contents(getcwd().'/php/composer.json', $resultJson);
+file_put_contents(getcwd().'/composer.json', $resultJson);
