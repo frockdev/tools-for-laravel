@@ -1,6 +1,6 @@
 <?php
 
-namespace FrockDev\ToolkitLaravel\Workers;
+namespace FrockDev\ToolsForLaravel\Workers;
 class JobsWorker
 {
 

@@ -1,9 +1,9 @@
 {
-  "name": "frock-dev/frock-laravel",
+  "name": "frock-dev/tools-for-laravel",
   "description": "Toolkit to boost your development with Laravel and frock.dev",
   "autoload": {
     "psr-4": {
-      "FrockDev\\ToolkitLaravel\\": "src/"
+      "FrockDev\\ToolsForLaravel\\": "src/"
     }
   },
   "require": {
