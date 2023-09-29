@@ -9,13 +9,13 @@ if (getenv('REVERSE')=='0') {
             'url' => 'frock-laravel',
         ];
 
-    $composerJson['require']['frock-dev/frock-laravel'] = 'dev-main';
+    $composerJson['require']['frock-dev/tools-for-laravel'] = 'dev-main';
 } elseif (getenv('REVERSE')=='1') {
     if (isset($composerJson['repositories']['frock_laravel'])) {
         unset($composerJson['repositories']['frock_laravel']);
     }
 
-    unset($composerJson['require']['frock-dev/frock-laravel']);
+    unset($composerJson['require']['frock-dev/tools-for-laravel']);
 } else {
     echo 'Please set REVERSE=1 or REVERSE=0';
     exit(1);
