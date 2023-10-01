@@ -15,12 +15,7 @@
         "nette/php-generator": "^4.0",
         "friendsofphp/php-cs-fixer": "^3.19",
         "grpc/grpc": "v1.57.0",
-        "filament/filament":"^3.0-stable"
-    },
-    "scripts": {
-        "post-package-install": [
-            "php artisan filament:install --panels"
-
-        ]
+        "filament/filament":"^3.0-stable",
+        "wendelladriel/laravel-lift": "v0.12.0"
     }
 }
