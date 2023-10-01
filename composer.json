@@ -1,12 +1,19 @@
 {
-  "name": "frock-dev/tools-for-laravel",
-  "description": "Toolkit to boost your development with Laravel and frock.dev",
-  "autoload": {
-    "psr-4": {
-      "FrockDev\\ToolsForLaravel\\": "src/"
+    "name": "frock-dev/tools-for-laravel",
+    "description": "Toolkit to boost your development with Laravel and frock.dev",
+    "autoload": {
+        "psr-4": {
+            "FrockDev\\ToolsForLaravel\\": "src/"
+        }
+    },
+    "require": {
+        "spiral/roadrunner-laravel": "v5.12.0",
+        "spiral/roadrunner-grpc": "v3.0.1",
+        "spiral/roadrunner-metrics": "v3.0.0",
+        "spiral/roadrunner-jobs": "v4.1.0",
+        "nunomaduro/larastan": "v2.6.4",
+        "nette/php-generator": "^4.0",
+        "friendsofphp/php-cs-fixer": "^3.19",
+        "grpc/grpc": "v1.59.0"
     }
-  },
-  "require": {
-    "spiral/roadrunner-laravel": "v5.12.0"
-  }
 }
