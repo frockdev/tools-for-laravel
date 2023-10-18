@@ -45,8 +45,8 @@ class CreateEndpointsFromProto extends Command
         $innerControllerMethod->setReturnType($method->getReturnType());
         $innerControllerMethod->setParameters($method->getParameters());
         $innerControllerMethod->setBody(
-            '/** @var \\' . $transportFullName . ' $transportController */' . "\n" .
-            '$transportController = $this->container->get(\\' . $transportFullName . '::class);' . "\n" .
+            '/** @var \\App\\Modules\\' . $transportFullName . ' $transportController */' . "\n" .
+            '$transportController = $this->container->get(\\App\\Modules\\' . $transportFullName . '::class);' . "\n" .
             '$transportController->context = $ctx->getValues();' . "\n" .
             'return $transportController($in);'
         );
