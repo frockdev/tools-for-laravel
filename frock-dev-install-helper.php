@@ -7,6 +7,9 @@ if (getenv('REVERSE')=='0') {
         $composerJson['repositories']['frock_laravel'] = [
             'type' => 'path',
             'url' => 'frock-laravel',
+            "options" => [
+                "symlink" => true
+            ]
         ];
 
     $composerJson['require']['frock-dev/tools-for-laravel'] = 'dev-main';

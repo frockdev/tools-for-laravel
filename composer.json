@@ -14,10 +14,16 @@
         "nunomaduro/larastan": "v2.6.4",
         "nette/php-generator": "^4.0",
         "friendsofphp/php-cs-fixer": "^3.19",
-        "grpc/grpc": "v1.57.0",
-        "filament/filament":"^3.0-stable"
+        "grpc/grpc": "v1.57.0"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "v2.13.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "FrockDev\\ToolsForLaravel\\FrockServiceProvider"
+            ]
+        }
     }
 }
