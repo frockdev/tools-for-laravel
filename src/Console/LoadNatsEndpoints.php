@@ -34,8 +34,17 @@ class LoadNatsEndpoints extends Command
                     $this->info('Loading '.$endpointClass);
 
                     $reflectionClass = new \ReflectionClass($endpointClass);
+                    if (str_contains($reflectionClass->getDocComment(), 'deprecated')) {
+                        $this->info('Deprecated '.$endpointClass. ' Skipping...');
+                        continue;
+                    }
 
                     foreach ($reflectionClass->getMethods() as $method) {
+                        if ($method->name!== 'run') continue;
+                        if ($method->isDeprecated()) {
+                            $this->info('Deprecated '.$endpointClass.'::run Skipping...');
+                            continue;
+                        }
                         $attributes = $method->getAttributes(\FrockDev\ToolsForLaravel\Annotations\Nats::class);
 
                         if (count($attributes) === 0) {
