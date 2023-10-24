@@ -12,14 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
+        uses: irgolic/AutoPR@v0.1.2
         with:
-          assignees: vladitot
-          reviewers: vladitot
-          draft: true
-          title: '[Example] Add report file'
-          body: >
-            This PR is auto-generated
-          labels: automated pr
-          token: ${{ secrets.PRTOKEN }}
+         github_token: ${{ secrets.PR_TOKEN }}
+
+#          assignees: vladitot
+#          reviewers: vladitot
+#          draft: true
+#          title: '[Example] Add report file'
+#          body: >
+#            This PR is auto-generated
+#          labels: automated pr
+#          token: ${{ secrets.PRTOKEN }}
 
