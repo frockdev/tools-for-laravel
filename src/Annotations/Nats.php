@@ -2,8 +2,6 @@
 
 namespace FrockDev\ToolsForLaravel\Annotations;
 
-use FrockDev\ToolsForLaravel\AnnotationSupport\NatsType;
-
 #[\Attribute(\Attribute::TARGET_METHOD)]
 class Nats
 {
