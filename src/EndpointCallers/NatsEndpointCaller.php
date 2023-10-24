@@ -9,7 +9,7 @@ use FrockDev\ToolsForLaravel\Nats\Messengers\JsonNatsMessenger;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Log;
 
-class NatsEndpointCaller implements CallerInterface
+class NatsEndpointCaller
 {
     private Application $app;
 

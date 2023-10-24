@@ -25,13 +25,7 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(LoadNatsEndpoints::class);
         $this->commands(NatsQueueConsumer::class);
         $this->commands(RegisterEndpoints::class);
-//        $this->commands(AddGettersAndSettersToGrpcObjects::class);
         $this->commands(AddToArrayToGrpcObjects::class);
-
-        $this->app->singleton(
-            \Illuminate\Contracts\Debug\ExceptionHandler::class,
-            ExceptionHandler::class
-        );
     }
 
     public function boot()
