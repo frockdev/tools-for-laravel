@@ -23,18 +23,3 @@ jobs:
           labels: automated pr
           token: ${{ secrets.PRTOKEN }}
 
-#jobs:
-#  create_pr_repo_sync:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v3
-#      - name: Create pull request
-#        id: open-pr
-#        uses: repo-sync/pull-request@v2
-#        with:
-#          destination_branch: "main"
-#          pr_title: "feat: new Infra"
-#          pr_template: ".github/PULL_REQUEST_TEMPLATE.md"
-#          pr_reviewer: "vladitot"
-#          pr_draft: true
-#          github_token: ${{ secrets.PRTOKEN }}
