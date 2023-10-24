@@ -7,21 +7,22 @@ on:
       - "main"
 
 jobs:
-  createPullRequest:
+  pull-request:
+    name: Open PR to main
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Create Pull Request
-        uses: irgolic/AutoPR@v0.1.2
-        with:
-         github_token: ${{ secrets.PR_TOKEN }}
+        name: checkout
 
-#          assignees: vladitot
-#          reviewers: vladitot
-#          draft: true
-#          title: '[Example] Add report file'
-#          body: >
-#            This PR is auto-generated
-#          labels: automated pr
-#          token: ${{ secrets.PRTOKEN }}
+      - uses: repo-sync/pull-request@v2
+        name: pull-request
+        with:
+          destination_branch: "main"
+          pr_title: "Pulling ${{ github.ref }} into main"
+          pr_body: "👑 *An automated PR*"
+          pr_reviewer: "vladitot"
+          pr_draft: true
+          pr_assignee: "vladitot"
+          github_token: ${{ secrets.PRTOKEN }}
+
 
