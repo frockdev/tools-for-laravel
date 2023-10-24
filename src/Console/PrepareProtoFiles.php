@@ -35,7 +35,11 @@ class PrepareProtoFiles extends Command
     private function modifyProtoFile(string $fileContent, string $projectName,  string $projectOwner): string
     {
         preg_match('/package (.*);/', $fileContent, $matches);
+        if (!isset($matches[1])) {
+            throw new \Exception('Package name not found in proto file. Don\'t forget write in file "package <package_name>;"');
+        }
         $packageName = $matches[1];
+
 
         $packageNameExploded = explode('.', $packageName);
         $version = ucfirst($packageNameExploded[count($packageNameExploded)-1]);
