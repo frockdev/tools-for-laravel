@@ -2,7 +2,6 @@
 
 namespace FrockDev\ToolsForLaravel;
 
-use FrockDev\ToolsForLaravel\Console\AddGettersAndSettersToGrpcObjects;
 use FrockDev\ToolsForLaravel\Console\AddToArrayToGrpcObjects;
 use FrockDev\ToolsForLaravel\Console\CreateEndpointsFromProto;
 use FrockDev\ToolsForLaravel\Console\AddNamespacesToComposerJson;
@@ -30,6 +29,8 @@ class FrockServiceProvider extends ServiceProvider
 
     public function boot()
     {
-
+        $this->publishes([
+            __DIR__.'/../config/nats.php' => config_path('nats.php'),
+        ]);
     }
 }
