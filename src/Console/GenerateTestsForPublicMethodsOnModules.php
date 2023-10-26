@@ -12,43 +12,53 @@ class GenerateTestsForPublicMethodsOnModules extends Command
 
     public function handle() {
         $modulesDir = app_path().'/Modules';
-        $files = glob($modulesDir.'/*');
+//        $files = glob($modulesDir.'/*');
+        $files = glob("$modulesDir/{,*/,*/*/,*/*/*/}*.php", GLOB_BRACE);
         foreach ($files as $file) {
-            if (!is_dir($file)) continue;
+            if (is_dir($file)) continue;
             $this->generateTestsForFile($file);
         }
     }
 
     private function generateTestsForFile(string $file)
     {
+        if (str_ends_with($file, 'InnerController.php')) return;
         /** @var ClassType $classType */
         $classType = ClassType::fromCode(file_get_contents($file));
         if (!$classType->getName()) return;
+        if ($classType->isAbstract()) return;
 
         foreach ($classType->getMethods() as $method) {
-            if (!$method->isPublic()) continue;
-            $this->generateTestForMethod($method->getName(), $file, $classType->getName());
+            if ($method->isPublic() || ($method->getName()==='run' && str_ends_with($classType->getName(), 'Endpoint')))  {
+                $this->generateTestForMethod($method->getName(), $file, $classType->getName());
+            }
         }
     }
 
     private function generateTestForMethod(string $method, string $file, string $className)
     {
         $pathToTest = 'tests/Feature/App/'.str_replace(app_path(), '', $file);
+        $pathToTest = substr($pathToTest, 0, -4).'Test.php';
 
         if (!file_exists($pathToTest)) {
             $classType = new ClassType($className.'Test');
-            $namespace = new PhpNamespace('Tests\Feature\App\\'.str_replace('/', '\\', str_replace(app_path(), '', dirname($file))));
+            $namespace = new PhpNamespace('Tests\\Feature\\App'.str_replace('/', '\\', str_replace(app_path(), '', dirname($file))));
+            $namespace->add($classType);
+            $classType->setExtends('\\Tests\\TestCase');
+            $namespace->addUse('\\Tests\\TestCase');
         } else {
+            /** @var ClassType $classType */
             $classType = ClassType::fromCode(file_get_contents($pathToTest));
             //letsTakeNamespaceViaregexp
             preg_match('/namespace\s+(.+);/', file_get_contents($pathToTest), $matches);
             $namespace = new PhpNamespace($matches[1]);
+            $namespace->add($classType);
         }
         if ($classType->hasMethod('test'.$method)) return;
 
         $method = $classType->addMethod('test'.ucfirst($method));
         $method->setPublic();
-        $method->addBody('throw new Exception(\'This Test is not implemented yet\');');
+        $method->addBody('throw new \\Exception(\'This Test is not implemented yet\');');
 
         $this->putNamespaceToFile($namespace, $pathToTest);
     }
