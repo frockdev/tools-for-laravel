@@ -12,7 +12,6 @@ class GenerateTestsForPublicMethodsOnModules extends Command
 
     public function handle() {
         $modulesDir = app_path().'/Modules';
-//        $files = glob($modulesDir.'/*');
         $files = glob("$modulesDir/{,*/,*/*/,*/*/*/}*.php", GLOB_BRACE);
         foreach ($files as $file) {
             if (is_dir($file)) continue;
@@ -23,8 +22,8 @@ class GenerateTestsForPublicMethodsOnModules extends Command
     private function generateTestsForFile(string $file)
     {
         if (str_ends_with($file, 'InnerController.php')) return;
-        /** @var ClassType $classType */
         $classType = ClassType::fromCode(file_get_contents($file));
+        if (!($classType instanceof ClassType)) return;
         if (!$classType->getName()) return;
         if ($classType->isAbstract()) return;
 
