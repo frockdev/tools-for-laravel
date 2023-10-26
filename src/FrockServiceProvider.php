@@ -5,6 +5,7 @@ namespace FrockDev\ToolsForLaravel;
 use FrockDev\ToolsForLaravel\Console\AddToArrayToGrpcObjects;
 use FrockDev\ToolsForLaravel\Console\CreateEndpointsFromProto;
 use FrockDev\ToolsForLaravel\Console\AddNamespacesToComposerJson;
+use FrockDev\ToolsForLaravel\Console\GenerateTestsForPublicMethodsOnModules;
 use FrockDev\ToolsForLaravel\Console\LoadNatsEndpoints;
 use FrockDev\ToolsForLaravel\Console\NatsQueueConsumer;
 use FrockDev\ToolsForLaravel\Console\PrepareProtoFiles;
@@ -31,6 +32,7 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(NatsQueueConsumer::class);
         $this->commands(RegisterEndpoints::class);
         $this->commands(AddToArrayToGrpcObjects::class);
+        $this->commands(GenerateTestsForPublicMethodsOnModules::class);
 
         $this->app->singleton(JsonNatsMessenger::class, function ($app) {
             $options = new ConnectionOptions([
