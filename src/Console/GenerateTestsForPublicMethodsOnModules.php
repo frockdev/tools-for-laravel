@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Console;
 
+use FrockDev\ToolsForLaravel\Annotations\ShouldBeTested;
 use Illuminate\Console\Command;
 use Nette\PhpGenerator\ClassType;
 use Nette\PhpGenerator\PhpNamespace;
@@ -22,15 +23,22 @@ class GenerateTestsForPublicMethodsOnModules extends Command
     private function generateTestsForFile(string $file)
     {
         if (str_ends_with($file, 'InnerController.php')) return;
+        preg_match('/namespace\s+(.+);/', file_get_contents($file), $matches);
+        $namespaceName = $matches[1];
         $classType = ClassType::fromCode(file_get_contents($file));
         if (!($classType instanceof ClassType)) return;
-        if (!$classType->getName()) return;
-        if ($classType->isAbstract()) return;
+        $reflectionClass = new \ReflectionClass($namespaceName.'\\'.$classType->getName());
+        $attributes = $reflectionClass->getAttributes();
+        $testsForMethods = [];
+        foreach ($attributes as $attribute) {
+            if ($attribute->getName()!==\FrockDev\ToolsForLaravel\Annotations\ShouldBeTested::class) continue;
+            /** @var ShouldBeTested $instance */
+            $instance = $attribute->newInstance();
+            $testsForMethods = array_merge($testsForMethods, $instance->methods);
+        }
 
-        foreach ($classType->getMethods() as $method) {
-            if ($method->isPublic() || ($method->getName()==='run' && str_ends_with($classType->getName(), 'Endpoint')))  {
-                $this->generateTestForMethod($method->getName(), $file, $classType->getName());
-            }
+        foreach ($testsForMethods as $testMethod) {
+            $this->generateTestForMethod($testMethod, $file, $classType->getName());
         }
     }
 
