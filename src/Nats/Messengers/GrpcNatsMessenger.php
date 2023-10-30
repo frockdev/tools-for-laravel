@@ -21,6 +21,11 @@ class GrpcNatsMessenger
         $this->connection->publish($channel, $message);
     }
 
+    public function sendMessageAsRequest(string $channel, Message $message, callable $callback)
+    {
+        $this->connection->request($channel, $message, $callback);
+    }
+
     public function subscribeAsAQueueWorker(string $channel, callable $callback)
     {
         $this->connection->queueSubscribe($channel, $channel, $callback);
