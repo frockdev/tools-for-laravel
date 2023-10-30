@@ -34,7 +34,7 @@ class RegisterEndpoints extends Command
 
                     $reflectionClass = new \ReflectionClass('App\\Modules\\'.$module.'\\Endpoints\\'.$version.'\\'.substr($endpoint, 0, -4));
                     $registerAllEndpointsBody.='$this->app->singleton(\\'.$reflectionClass->getName().'::class, function($app) {'."\n";
-                    $registerAllEndpointsBody .= "\t".'$object = new \\'.$reflectionClass->getName().'();'."\n";
+                    $registerAllEndpointsBody .= "\t".'$object = $app->make(\\'.$reflectionClass->getName().'::class);'."\n";
                     $serviceProviderNamespace->addUse($reflectionClass->getName());
 
 
