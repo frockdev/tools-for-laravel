@@ -34,7 +34,7 @@ class RegisterEndpoints extends Command
 
                     $reflectionClass = new \ReflectionClass('App\\Modules\\'.$module.'\\Endpoints\\'.$version.'\\'.substr($endpoint, 0, -4));
                     $registerAllEndpointsBody.='$this->app->singleton(\\'.$reflectionClass->getName().'::class, function($app) {'."\n";
-                        $registerAllEndpointsBody .= "\t".'$object = new \\'.$reflectionClass->getName().'();'."\n";
+                    $registerAllEndpointsBody .= "\t".'$object = new \\'.$reflectionClass->getName().'();'."\n";
                     $serviceProviderNamespace->addUse($reflectionClass->getName());
 
 
@@ -45,11 +45,19 @@ class RegisterEndpoints extends Command
                             $attributeInstance = $attribute->newInstance();
                             $arrayOfParams = $this->getArrayOfParams($attributeInstance, $attribute);
                             if ($attributeInstance instanceof PreInterceptorInterface) {
-                                $registerAllEndpointsBody.="\t".'$object->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
+                                if (!empty($arrayOfParams)) {
+                                    $registerAllEndpointsBody.="\t".'$object->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
+                                } else {
+                                    $registerAllEndpointsBody.="\t".'$object->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class));'."\n";
+                                }
                                 $serviceProviderNamespace->addUse($attributeInstance::class);
                             }
                             if ($attributeInstance instanceof PostInterceptorInterface) {
-                                $registerAllEndpointsBody.="\t".'$object->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
+                                if (!empty($arrayOfParams)) {
+                                    $registerAllEndpointsBody.="\t".'$object->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
+                                } else {
+                                    $registerAllEndpointsBody.="\t".'$object->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class));'."\n";
+                                }
                                 $serviceProviderNamespace->addUse($attributeInstance::class);
                             }
                         }
@@ -107,6 +115,9 @@ class RegisterEndpoints extends Command
         $attributeReflection = new \ReflectionClass($attributeInstance);
         //we need to get array of names of constructor parameters of $attributeReflection
         $attributeConstructor = $attributeReflection->getConstructor();
+        if (is_null($attributeConstructor)) {
+            return [];
+        }
         $attributeConstructorParams = $attributeConstructor->getParameters();
         $attributeConstructorParamsNames = [];
         foreach ($attributeConstructorParams as $attributeConstructorParam) {
