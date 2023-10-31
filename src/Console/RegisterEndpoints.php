@@ -33,8 +33,9 @@ class RegisterEndpoints extends Command
                     }
 
                     $reflectionClass = new \ReflectionClass('App\\Modules\\'.$module.'\\Endpoints\\'.$version.'\\'.substr($endpoint, 0, -4));
-                    $registerAllEndpointsBody.='$this->app->singleton(\\'.$reflectionClass->getName().'::class, function($app) {'."\n";
-                    $registerAllEndpointsBody .= "\t".'$object = $app->make(\\'.$reflectionClass->getName().'::class);'."\n";
+                    //$endpoint = $this->app->make(\App\Modules\Merchant\Endpoints\V1\MerchantServiceCreateDepositEndpoint::class);
+                    $registerAllEndpointsBody = '$endpoint = $this->app->make(\\'.$reflectionClass->getName().'::class);'."\n";
+                    $registerAllEndpointsBody.='$this->app->singleton(\\'.$reflectionClass->getName().'::class, function($app) use ($endpoint) {'."\n";
                     $serviceProviderNamespace->addUse($reflectionClass->getName());
 
 
@@ -46,23 +47,23 @@ class RegisterEndpoints extends Command
                             $arrayOfParams = $this->getArrayOfParams($attributeInstance, $attribute);
                             if ($attributeInstance instanceof PreInterceptorInterface) {
                                 if (!empty($arrayOfParams)) {
-                                    $registerAllEndpointsBody.="\t".'$object->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
+                                    $registerAllEndpointsBody.="\t".'$endpoint->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
                                 } else {
-                                    $registerAllEndpointsBody.="\t".'$object->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class));'."\n";
+                                    $registerAllEndpointsBody.="\t".'$endpoint->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class));'."\n";
                                 }
                                 $serviceProviderNamespace->addUse($attributeInstance::class);
                             }
                             if ($attributeInstance instanceof PostInterceptorInterface) {
                                 if (!empty($arrayOfParams)) {
-                                    $registerAllEndpointsBody.="\t".'$object->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
+                                    $registerAllEndpointsBody.="\t".'$endpoint->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
                                 } else {
-                                    $registerAllEndpointsBody.="\t".'$object->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class));'."\n";
+                                    $registerAllEndpointsBody.="\t".'$endpoint->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class));'."\n";
                                 }
                                 $serviceProviderNamespace->addUse($attributeInstance::class);
                             }
                         }
                     }
-                    $registerAllEndpointsBody.="\n\t".'return $object;'."\n".'});'."\n";
+                    $registerAllEndpointsBody.="\n\t".'return $endpoint;'."\n".'});'."\n";
                 }
 
             }
