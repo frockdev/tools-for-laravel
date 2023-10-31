@@ -37,7 +37,7 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(AddToArrayToGrpcObjects::class);
         $this->commands(GenerateTestsForPublicMethodsOnModules::class);
 
-        $this->app->singleton(JsonNatsMessenger::class, function ($app) {
+        $this->app->bind(JsonNatsMessenger::class, function ($app) {
             $options = new ConnectionOptions([
                 'host'=>config('nats.address'),
             ]);
@@ -46,7 +46,7 @@ class FrockServiceProvider extends ServiceProvider
             return new JsonNatsMessenger($connection);
         });
 
-        $this->app->singleton(GrpcNatsMessenger::class, function ($app) {
+        $this->app->bind(GrpcNatsMessenger::class, function ($app) {
             $options = new ConnectionOptions([
                 'host'=>config('nats.address'),
             ]);
