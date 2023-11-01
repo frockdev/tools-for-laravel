@@ -27,6 +27,7 @@ class RegisterEndpoints extends Command
                     continue;
                 }
 
+                $registerAllEndpointsBody = '';
                 foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/' . $version) as $endpoint) {
                     if ($endpoint === '.' || $endpoint === '..' || !is_file(app_path() . '/Modules/' . $module . '/Endpoints/' . $version . '/' . $endpoint)) {
                         continue;
@@ -34,7 +35,7 @@ class RegisterEndpoints extends Command
 
                     $reflectionClass = new \ReflectionClass('App\\Modules\\'.$module.'\\Endpoints\\'.$version.'\\'.substr($endpoint, 0, -4));
                     //$endpoint = $this->app->make(\App\Modules\Merchant\Endpoints\V1\MerchantServiceCreateDepositEndpoint::class);
-                    $registerAllEndpointsBody = '$endpoint = $this->app->make(\\'.$reflectionClass->getName().'::class);'."\n";
+                    $registerAllEndpointsBody .= "\n".'$endpoint = $this->app->make(\\'.$reflectionClass->getName().'::class);'."\n";
                     $registerAllEndpointsBody.='$this->app->singleton(\\'.$reflectionClass->getName().'::class, function($app) use ($endpoint) {'."\n";
                     $serviceProviderNamespace->addUse($reflectionClass->getName());
 
