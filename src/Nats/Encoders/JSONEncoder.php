@@ -35,7 +35,7 @@ class JSONEncoder implements Encoder
      * @param null $subject
      * @return mixed
      */
-    public function decode($payload, $headers = [], $subject = null)
+    public function decode($payload, $headers = [], $subject = null, ?string $messageTypeForEncoder = null)
     {
         $payload = json_decode($payload, true);
         return $payload;

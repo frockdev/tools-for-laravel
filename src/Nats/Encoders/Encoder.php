@@ -28,5 +28,5 @@ interface Encoder
      *
      * @return mixed
      */
-    public function decode($payload, $headers = [], $subject = null);
+    public function decode($payload, $headers = [], $subject = null, ?string $messageTypeForEncoder = null);
 }

@@ -21,9 +21,11 @@ class GrpcNatsMessenger
         $this->connection->publish($channel, $message);
     }
 
-    public function sendMessageAsRequest(string $channel, Message $message, callable $callback)
+    public function sendMessageAsRequest(string $channel, Message $message): Message
     {
-        $this->connection->request($channel, $message, $callback);
+        /** @var \FrockDev\ToolsForLaravel\Nats\Message $result */
+        $result = $this->connection->request($channel, $message);
+        return $result->getBody();
     }
 
     public function subscribeAsAQueueWorker(string $channel, callable $callback)

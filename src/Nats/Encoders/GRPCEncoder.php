@@ -37,10 +37,17 @@ class GRPCEncoder implements Encoder
      *
      * @return mixed
      */
-    public function decode($payload, $headers = [], $subject = null)
+    public function decode($payload, $headers = [], $subject = null, ?string $messageTypeForEncoder = null)
     {
         if ($subject===null) {
             throw new \Exception('Subject must be provided to decode a protobuf message');
+        }
+
+        if ($messageTypeForEncoder!==null) {
+            /** @var \Google\Protobuf\Internal\Message $payload */
+            $object = new $messageTypeForEncoder();
+            $object->mergeFromJsonString($payload);
+            return $object;
         }
         $payloadInfo = config('natsEndpoints.'.$subject);
         $type = $payloadInfo['inputType'];

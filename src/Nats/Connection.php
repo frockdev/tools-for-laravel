@@ -550,7 +550,7 @@ class Connection
      *
      * @return void
      */
-    public function request($subject, $payload, \Closure $callback)
+    public function request($subject, $payload, ?\Closure $callback = null)
     {
         $inbox = uniqid('_INBOX.');
         $sid   = $this->subscribe(
@@ -695,7 +695,7 @@ class Connection
      *
      * @return Connection $connection Connection object
      */
-    public function wait($quantity = 0)
+    public function wait($quantity = 0, ?string $waitingType = null)
     {
         $count = 0;
         while ($count<$quantity) {
