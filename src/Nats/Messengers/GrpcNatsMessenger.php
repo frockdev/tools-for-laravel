@@ -13,7 +13,9 @@ class GrpcNatsMessenger
     public function __construct(EncodedConnection $jobs)
     {
         $this->connection = $jobs;
-        $this->connection->connect();
+        if (!config('nats.autoconnectDisabled')==true) {
+            $this->connection->connect();
+        }
     }
 
     public function sendMessageToChannel(string $channel, Message $message)
