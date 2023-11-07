@@ -36,10 +36,36 @@ class PrepareProtoFiles extends Command
     {
         preg_match('/package (.*);/', $fileContent, $matches);
         if (!isset($matches[1])) {
-            throw new \Exception('Package name not found in proto file. Don\'t forget write in file "package <package_name>;"');
+            throw new \Exception('Package name not found in proto file. Don\'t forget write in file "package <package_name>;"'.$fileContent);
         }
         $packageName = $matches[1];
 
+//        // this is new
+//        preg_match('%\s*//\s*messagesPrefix\s*=\s*(.*);%', $fileContent, $matches);
+//        $internalPrefix = $matches[1] ?? '';
+//        $internalPrefix = trim($internalPrefix, '\'"');
+//        if ($internalPrefix!=='') {
+//            preg_match_all('/rpc\s+(\w*)\s*\((.*)\)\s*returns\s*\((.*)\);/', $fileContent, $matches);
+//            $internalRequests = $matches[2];
+//            $internalResponses = $matches[3];
+//
+//            preg_match_all('/message\s+(\w*)\s*{/', $fileContent, $matches);
+//
+//            $strings = $matches[0];
+//            $messages = $matches[1];
+//
+//            foreach ($strings as $key=>$stringToChange) {
+//                if (in_array($messages[$key], $internalRequests) || in_array($messages[$key], $internalResponses)) {
+//                    echo 'dont touch external message '.$messages[$key]."\n";
+//                    continue;
+//                }
+//                $fileContent = str_replace($stringToChange, 'message '.$internalPrefix.ucfirst($messages[$key]).' {', $fileContent);
+//                $fileContent = preg_replace('/^\s+('.$messages[$key].')\s+(\w*\s*=\s*\d+;)$/m', '    '.$internalPrefix.ucfirst($messages[$key]).' $2', $fileContent);
+//                // and also for repeated
+//                $fileContent = preg_replace('/^\s+repeated\s+('.$messages[$key].')\s+(\w*\s*=\s*\d+;)$/m', '    repeated '.$internalPrefix.ucfirst($messages[$key]).' $2', $fileContent);
+//            }
+//        }
+//        //end of new
 
         $packageNameExploded = explode('.', $packageName);
         $version = ucfirst($packageNameExploded[count($packageNameExploded)-1]);

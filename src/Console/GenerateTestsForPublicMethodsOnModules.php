@@ -20,10 +20,22 @@ class GenerateTestsForPublicMethodsOnModules extends Command
         }
     }
 
+    private function getAllUsesFromFile($filePath) {
+        $uses = [];
+        $file = file_get_contents($filePath);
+        preg_match_all('/use\s+(.+);/', $file, $matches);
+        foreach ($matches[1] as $match) {
+            $uses[] = $match;
+        }
+        return $uses;
+    }
+
     private function generateTestsForFile(string $file)
     {
         if (str_ends_with($file, 'InnerController.php')) return;
+        if (str_ends_with($file, 'AbstractEndpoint.php')) return;
         preg_match('/namespace\s+(.+);/', file_get_contents($file), $matches);
+
         $namespaceName = $matches[1];
         $classType = ClassType::fromCode(file_get_contents($file));
         if (!($classType instanceof ClassType)) return;
@@ -47,9 +59,14 @@ class GenerateTestsForPublicMethodsOnModules extends Command
         $pathToTest = 'tests/Feature/App/'.str_replace(app_path(), '', $file);
         $pathToTest = substr($pathToTest, 0, -4).'Test.php';
 
+        $uses = $this->getAllUsesFromFile($pathToTest);
+
         if (!file_exists($pathToTest)) {
             $classType = new ClassType($className.'Test');
             $namespace = new PhpNamespace('Tests\\Feature\\App'.str_replace('/', '\\', str_replace(app_path(), '', dirname($file))));
+            foreach ($uses as $use) {
+                $namespace->addUse($use);
+            }
             $namespace->add($classType);
             $classType->setExtends('\\Tests\\TestCase');
             $namespace->addUse('\\Tests\\TestCase');

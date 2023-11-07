@@ -21,19 +21,24 @@ class LoadNatsEndpoints extends Command
                 continue;
             }
 
-            foreach (scandir(app_path().'/Modules/'.$module.'/Endpoints') as $version) {
-                if ($version === '.' || $version === '..' || !is_dir(app_path().'/Modules/'.$module.'/Endpoints/'.$version)) {
+            foreach (scandir(app_path().'/Modules/'.$module.'/Endpoints') as $subService) {
+                if ($subService === '.' || $subService === '..' || !is_dir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService)) {
                     continue;
                 }
 
-                foreach (scandir(app_path().'/Modules/'.$module.'/Endpoints/'.$version) as $endpoint) {
-                    if ($endpoint === '.' || $endpoint === '..' || !is_file(app_path().'/Modules/'.$module.'/Endpoints/'.$version.'/'.$endpoint)) {
+            foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService) as $version) {
+                if ($version === '.' || $version === '..' || !is_dir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version)) {
+                    continue;
+                }
+
+                foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version) as $endpoint) {
+                    if ($endpoint === '.' || $endpoint === '..' || !is_file(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version . '/' . $endpoint)) {
                         continue;
                     }
 
-                    $endpointClass = 'App\\Modules\\'.$module.'\\Endpoints\\'.$version.'\\'.substr($endpoint, 0, -4);
+                    $endpointClass = 'App\\Modules\\' . $module . '\\Endpoints\\' .$subService .'\\'. $version . '\\' . substr($endpoint, 0, -4);
 
-                    $this->info('Loading '.$endpointClass);
+                    $this->info('Loading ' . $endpointClass);
 
                     $reflectionClass = new \ReflectionClass($endpointClass);
 //                    if (str_contains($reflectionClass->getDocComment(), 'deprecated')) {
@@ -42,7 +47,7 @@ class LoadNatsEndpoints extends Command
 //                    }
 
                     foreach ($reflectionClass->getMethods() as $method) {
-                        if ($method->name!== 'run') continue;
+                        if ($method->name !== 'run') continue;
 //                        if ($method->isDeprecated()) {
 //                            $this->info('Deprecated '.$endpointClass.'::run Skipping...');
 //                            continue;
@@ -61,15 +66,16 @@ class LoadNatsEndpoints extends Command
 
                         $outputType = $method->getReturnType();
 
-                        $this->info('Loading '.$attribute->subject);
+                        $this->info('Loading ' . $attribute->subject);
                         $envVarName = $this->convertSubjectToEnvVarName($attribute->subject);
-                        $natsEndpointsConfigFile .= "\tenv('".$envVarName."_NATS_CHANNEL', '".$attribute->subject."') => [\n";
-                        $natsEndpointsConfigFile .= "\t\t'endpoint' => '".$endpointClass."',\n";
-                        $natsEndpointsConfigFile .= "\t\t'inputType' => '".$inputType."',\n";
-                        $natsEndpointsConfigFile .= "\t\t'outputType' => '".$outputType."',\n";
-                        $natsEndpointsConfigFile .= "\t".'],'."\n";
+                        $natsEndpointsConfigFile .= "\tenv('" . $envVarName . "_NATS_CHANNEL', '" . $attribute->subject . "') => [\n";
+                        $natsEndpointsConfigFile .= "\t\t'endpoint' => '" . $endpointClass . "',\n";
+                        $natsEndpointsConfigFile .= "\t\t'inputType' => '" . $inputType . "',\n";
+                        $natsEndpointsConfigFile .= "\t\t'outputType' => '" . $outputType . "',\n";
+                        $natsEndpointsConfigFile .= "\t" . '],' . "\n";
                     }
                 }
+            }
             }
         }
 

@@ -184,10 +184,10 @@ class CreateEndpointsFromProto extends Command
      * @param mixed $versionDir
      * @return void
      */
-    public function clear(string $serviceDir, string $versionDir): void
+    public function clear(string $serviceDir, string $subServiceDir, string $versionDir): void
     {
-        shell_exec('rm -rf ' . '/var/www/php/app/Modules/' . $serviceDir . '/InnerGrpcControllers/' . $versionDir);
-        shell_exec('rm -rf ' . '/var/www/php/app/Modules/' . $serviceDir . '/AbstractEndpoints/' . $versionDir);
+        shell_exec('rm -rf ' . '/var/www/php/app/Modules/' . $serviceDir . '/InnerGrpcControllers/' .$subServiceDir . '/' . $versionDir);
+        shell_exec('rm -rf ' . '/var/www/php/app/Modules/' . $serviceDir . '/AbstractEndpoints/' . $subServiceDir . '/' . $versionDir);
     }
 
     private function getGrpcInterfaceNamespace(string $fileContent) {
@@ -196,84 +196,90 @@ class CreateEndpointsFromProto extends Command
         return $matches[1];
     }
 
-    public function createInnerGrpcControllerNamespace(string $serviceName, string $versionName): PhpNamespace {
-        return new PhpNamespace('App\\Modules\\'.$serviceName.'\\InnerGrpcControllers\\'.$versionName);
+    public function createInnerGrpcControllerNamespace(string $serviceName, string $subServiceName, string $versionName): PhpNamespace {
+        return new PhpNamespace('App\\Modules\\'.$serviceName.'\\InnerGrpcControllers\\'.$subServiceName.'\\'.$versionName);
     }
 
     public function handle() {
         foreach (scandir('/var/www/php/protoGenerated/') as $serviceDir) {
             if ($serviceDir === '.' || $serviceDir === '..' || !is_dir('/var/www/php/protoGenerated/'.$serviceDir)) continue;
             // это сервисы
+            foreach (scandir('/var/www/php/protoGenerated/'.$serviceDir) as $subServiceDir) {
+                if ($subServiceDir === '.' || $subServiceDir === '..' || !is_dir('/var/www/php/protoGenerated/'.$serviceDir.'/'.$subServiceDir)) continue;
+                // это подсервисы
+                foreach (scandir('/var/www/php/protoGenerated/'.$serviceDir.'/'.$subServiceDir) as $versionDir) {
+                    // это версии обслуживаемых подсеврисов
+                    if ($versionDir === '.' || $versionDir === '..' || !is_dir('/var/www/php/protoGenerated/' . $serviceDir.'/'. $subServiceDir . '/' . $versionDir)) continue;
 
-            foreach (scandir('/var/www/php/protoGenerated/'.$serviceDir) as $versionDir) {
-                // это версии обслуживаемых подсеврисов
-                if ($versionDir === '.' || $versionDir === '..' || !is_dir('/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir)) continue;
-
-                $interfacePaths = [];
-                foreach (scandir('/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir) as $filePath) {
-                    if ($filePath === '.' || $filePath === '..' || is_dir('/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir . '/' . $filePath)) continue;
-                    if (str_ends_with($filePath, 'Interface.php')) {
-                        $interfacePaths[] = '/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir . '/' . $filePath;
+                    $interfacePaths = [];
+                    echo 'lets scan '.'/var/www/php/protoGenerated/' . $serviceDir .'/'. $subServiceDir . '/' . $versionDir."\n";
+                    foreach (scandir('/var/www/php/protoGenerated/' . $serviceDir .'/'. $subServiceDir . '/' . $versionDir) as $filePath) {
+                        if ($filePath === '.' || $filePath === '..' || is_dir('/var/www/php/protoGenerated/' . $serviceDir.'/'. $subServiceDir . '/' . $versionDir . '/' . $filePath)) continue;
+                        if (str_ends_with($filePath, 'Interface.php')) {
+                            $interfacePaths[] = '/var/www/php/protoGenerated/' . $serviceDir .'/'. $subServiceDir . '/' . $versionDir . '/' . $filePath;
+                        }
                     }
-                }
-                if (empty($interfacePaths)) throw new \Exception('Cannot find any interface in /var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir . '/');
-                $this->clear($serviceDir, $versionDir);
-                foreach ($interfacePaths as $interfacePath) {
-                    $fileContent = file_get_contents($interfacePath);
-                    /** @var InterfaceType $grpcInterface */
-                    $grpcInterface = InterfaceType::fromCode($fileContent);
+                    if (empty($interfacePaths)) {
+                        throw new \Exception('Cannot find any interface in /var/www/php/protoGenerated/' . $serviceDir.'/'. $subServiceDir . '/' . $versionDir . '/');
+                    }
+                    $this->clear($serviceDir, $subServiceDir, $versionDir);
+                    foreach ($interfacePaths as $interfacePath) {
+                        $fileContent = file_get_contents($interfacePath);
+                        /** @var InterfaceType $grpcInterface */
+                        $grpcInterface = InterfaceType::fromCode($fileContent);
 
-                    $grpcInterfaceNamespace = $this->getGrpcInterfaceNamespace($fileContent);
+                        $grpcInterfaceNamespace = $this->getGrpcInterfaceNamespace($fileContent);
 
-                    $innerGrpcController = new ClassType(str_replace('Interface', '', $grpcInterface->getName()) . 'InnerController');
-                    $innerGrpcController->addComment('This file is generated by Frock.Dev. Do not edit it manually.');
-                    $innerControllerNamespace = $this->createInnerGrpcControllerNamespace($serviceDir, $versionDir);
-                    $innerControllerNamespace->add($innerGrpcController);
-                    $innerGrpcController->setFinal();
-                    $innerGrpcController->setImplements([$grpcInterfaceNamespace . '\\' . $grpcInterface->getName()]);
+                        $innerGrpcController = new ClassType(str_replace('Interface', '', $grpcInterface->getName()) . 'InnerController');
+                        $innerGrpcController->addComment('This file is generated by Frock.Dev. Do not edit it manually.');
+                        $innerControllerNamespace = $this->createInnerGrpcControllerNamespace($serviceDir, $subServiceDir, $versionDir);
+                        $innerControllerNamespace->add($innerGrpcController);
+                        $innerGrpcController->setFinal();
+                        $innerGrpcController->setImplements([$grpcInterfaceNamespace . '\\' . $grpcInterface->getName()]);
 
-                    $this->innerGrpcControllerConstructorCreate($innerGrpcController);
+                        $this->innerGrpcControllerConstructorCreate($innerGrpcController);
 
-                    foreach ($grpcInterface->getMethods() as $method) {
+                        foreach ($grpcInterface->getMethods() as $method) {
 
-                        $abstractEndpointClassName = str_replace('Interface', '', $grpcInterface->getName()) . $method->getName() . 'AbstractEndpoint';
-                        $transportFullName = $serviceDir . '\\AbstractEndpoints\\' . $versionDir . '\\' . $abstractEndpointClassName;
+                            $abstractEndpointClassName = str_replace('Interface', '', $grpcInterface->getName()) . $method->getName() . 'AbstractEndpoint';
+                            $transportFullName = $serviceDir . '\\AbstractEndpoints\\' .$subServiceDir.'\\' . $versionDir . '\\' . $abstractEndpointClassName;
 
-                        $this->abstractEndpointMethodCreate($innerGrpcController, $method, $transportFullName);
+                            $this->abstractEndpointMethodCreate($innerGrpcController, $method, $transportFullName);
 
-                        $newAbstractEndpointNamespace = new PhpNamespace('App\\Modules\\' . $serviceDir . '\\AbstractEndpoints\\' . $versionDir);
-                        $newAbstractClass = new ClassType(
-                            $abstractEndpointClassName
-                        );
-                        $newAbstractClass->addComment('This file is generated by Frock.Dev. Do not edit it manually.');
-                        $newAbstractClass->setAbstract();
-                        //                        $this->injectBusManager($newAbstractClass);
-                        $newAbstractClass->addProperty('context')
-                            ->setType('array');
+                            $newAbstractEndpointNamespace = new PhpNamespace('App\\Modules\\' . $serviceDir . '\\AbstractEndpoints\\' .$subServiceDir . '\\' . $versionDir);
+                            $newAbstractClass = new ClassType(
+                                $abstractEndpointClassName
+                            );
+                            $newAbstractClass->addComment('This file is generated by Frock.Dev. Do not edit it manually.');
+                            $newAbstractClass->setAbstract();
+                            //                        $this->injectBusManager($newAbstractClass);
+                            $newAbstractClass->addProperty('context')
+                                ->setType('array');
 
-                        $this->createInterceptorsArrays($newAbstractClass);
+                            $this->createInterceptorsArrays($newAbstractClass);
 
-                        $newAbstractEndpointNamespace->add($newAbstractClass);
+                            $newAbstractEndpointNamespace->add($newAbstractClass);
 
-                        $invokeMethodDtoType = $this->createInvokeMethod($newAbstractClass, $method);
+                            $invokeMethodDtoType = $this->createInvokeMethod($newAbstractClass, $method);
 
-                        $this->createRunMethod($newAbstractClass, $invokeMethodDtoType, $method);
+                            $this->createRunMethod($newAbstractClass, $invokeMethodDtoType, $method);
 
-                        $this->addConstants($newAbstractClass, $grpcInterfaceNamespace, $grpcInterface, $method, $innerControllerNamespace, $innerGrpcController, $invokeMethodDtoType);
+                            $this->addConstants($newAbstractClass, $grpcInterfaceNamespace, $grpcInterface, $method, $innerControllerNamespace, $innerGrpcController, $invokeMethodDtoType);
 
-                        $allConstants = $grpcInterface->getConstants();
-                        $baseRoute = $allConstants['NAME'];
+                            $allConstants = $grpcInterface->getConstants();
+                            $baseRoute = $allConstants['NAME'];
 
-                        $this->addGrpcRouteConstant($newAbstractClass, $baseRoute, $method);
+                            $this->addGrpcRouteConstant($newAbstractClass, $baseRoute, $method);
 
-                        $this->createEndpointRealizationIfNotExists(
-                            $newAbstractEndpointNamespace->getName(),
-                            $newAbstractClass->getName(),
-                            $method,
-                        );
+                            $this->createEndpointRealizationIfNotExists(
+                                $newAbstractEndpointNamespace->getName(),
+                                $newAbstractClass->getName(),
+                                $method,
+                            );
 
-                        $this->putNamespaceToFile($newAbstractEndpointNamespace, '/var/www/php/app/Modules/' . $serviceDir . '/AbstractEndpoints/' . $versionDir . '/' . $newAbstractClass->getName() . '.php');
-                        $this->putNamespaceToFile($innerControllerNamespace, '/var/www/php/app/Modules/' . $serviceDir . '/InnerGrpcControllers/' . $versionDir . '/' . $innerGrpcController->getName() . '.php');
+                            $this->putNamespaceToFile($newAbstractEndpointNamespace, '/var/www/php/app/Modules/' . $serviceDir. '/AbstractEndpoints/' . $subServiceDir . '/' . $versionDir . '/' . $newAbstractClass->getName() . '.php');
+                            $this->putNamespaceToFile($innerControllerNamespace, '/var/www/php/app/Modules/' . $serviceDir. '/InnerGrpcControllers/' . $subServiceDir . '/'  . $versionDir . '/' . $innerGrpcController->getName() . '.php');
+                        }
                     }
                 }
             }

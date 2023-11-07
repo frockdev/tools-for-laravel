@@ -22,51 +22,54 @@ class RegisterEndpoints extends Command
                 continue;
             }
 
-            foreach (scandir(app_path().'/Modules/'.$module.'/Endpoints') as $version) {
-                if ($version === '.' || $version === '..' || !is_dir(app_path() . '/Modules/' . $module . '/Endpoints/' . $version)) {
+            foreach (scandir(app_path().'/Modules/'.$module.'/Endpoints') as $subService) {
+                if ($subService === '.' || $subService === '..' || !is_dir(app_path().'/Modules/'.$module.'/Endpoints/'.$subService)) {
                     continue;
                 }
 
-                $registerAllEndpointsBody = '';
-                foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/' . $version) as $endpoint) {
-                    if ($endpoint === '.' || $endpoint === '..' || !is_file(app_path() . '/Modules/' . $module . '/Endpoints/' . $version . '/' . $endpoint)) {
+            foreach (scandir(app_path().'/Modules/'.$module.'/Endpoints/'.$subService) as $version) {
+                if ($version === '.' || $version === '..' || !is_dir(app_path() . '/Modules/' . $module . '/Endpoints/'.$subService . '/' . $version)) {
+                    continue;
+                }
+                foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/'.$subService . '/' . $version) as $endpoint) {
+                    if ($endpoint === '.' || $endpoint === '..' || !is_file(app_path() . '/Modules/' . $module . '/Endpoints/'.$subService . '/' . $version . '/' . $endpoint)) {
                         continue;
                     }
 
-                    $reflectionClass = new \ReflectionClass('App\\Modules\\'.$module.'\\Endpoints\\'.$version.'\\'.substr($endpoint, 0, -4));
+                    $reflectionClass = new \ReflectionClass('App\\Modules\\' . $module . '\\Endpoints\\' .$subService.'\\'. $version . '\\' . substr($endpoint, 0, -4));
                     //$endpoint = $this->app->make(\App\Modules\Merchant\Endpoints\V1\MerchantServiceCreateDepositEndpoint::class);
-                    $registerAllEndpointsBody .= "\n".'$endpoint = $this->app->make(\\'.$reflectionClass->getName().'::class);'."\n";
-                    $registerAllEndpointsBody.='$this->app->singleton(\\'.$reflectionClass->getName().'::class, function($app) use ($endpoint) {'."\n";
+                    $registerAllEndpointsBody .= "\n" . '$endpoint = $this->app->make(\\' . $reflectionClass->getName() . '::class);' . "\n";
+                    $registerAllEndpointsBody .= '$this->app->singleton(\\' . $reflectionClass->getName() . '::class, function($app) use ($endpoint) {' . "\n";
                     $serviceProviderNamespace->addUse($reflectionClass->getName());
 
 
                     foreach ($reflectionClass->getMethods() as $method) {
-                        if ($method->getName()!='run') continue;
+                        if ($method->getName() != 'run') continue;
 
                         foreach ($method->getAttributes() as $attribute) {
                             $attributeInstance = $attribute->newInstance();
                             $arrayOfParams = $this->getArrayOfParams($attributeInstance, $attribute);
                             if ($attributeInstance instanceof PreInterceptorInterface) {
                                 if (!empty($arrayOfParams)) {
-                                    $registerAllEndpointsBody.="\t".'$endpoint->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
+                                    $registerAllEndpointsBody .= "\t" . '$endpoint->addPreInterceptor($app->make(\\' . $attributeInstance::class . '::class, ' . $arrayOfParams . '));' . "\n";
                                 } else {
-                                    $registerAllEndpointsBody.="\t".'$endpoint->addPreInterceptor($app->make(\\'.$attributeInstance::class.'::class));'."\n";
+                                    $registerAllEndpointsBody .= "\t" . '$endpoint->addPreInterceptor($app->make(\\' . $attributeInstance::class . '::class));' . "\n";
                                 }
                                 $serviceProviderNamespace->addUse($attributeInstance::class);
                             }
                             if ($attributeInstance instanceof PostInterceptorInterface) {
                                 if (!empty($arrayOfParams)) {
-                                    $registerAllEndpointsBody.="\t".'$endpoint->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class, '.$arrayOfParams.'));'."\n";
+                                    $registerAllEndpointsBody .= "\t" . '$endpoint->addPostInterceptor($app->make(\\' . $attributeInstance::class . '::class, ' . $arrayOfParams . '));' . "\n";
                                 } else {
-                                    $registerAllEndpointsBody.="\t".'$endpoint->addPostInterceptor($app->make(\\'.$attributeInstance::class.'::class));'."\n";
+                                    $registerAllEndpointsBody .= "\t" . '$endpoint->addPostInterceptor($app->make(\\' . $attributeInstance::class . '::class));' . "\n";
                                 }
                                 $serviceProviderNamespace->addUse($attributeInstance::class);
                             }
                         }
                     }
-                    $registerAllEndpointsBody.="\n\t".'return $endpoint;'."\n".'});'."\n";
+                    $registerAllEndpointsBody .= "\n\t" . 'return $endpoint;' . "\n" . '});' . "\n";
                 }
-
+            }
             }
         }
 
