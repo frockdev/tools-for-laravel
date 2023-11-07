@@ -21,6 +21,7 @@ class GenerateTestsForPublicMethodsOnModules extends Command
     }
 
     private function getAllUsesFromFile($filePath) {
+        if (!file_exists($filePath)) return [];
         $uses = [];
         $file = file_get_contents($filePath);
         preg_match_all('/use\s+(.+);/', $file, $matches);
