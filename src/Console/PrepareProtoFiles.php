@@ -56,7 +56,7 @@ class PrepareProtoFiles extends Command
         $fileContent .= "\noption php_namespace = \""
             .$this->fixNameFromAnyToCamelCase($projectOwner)
             .'\\\\'.$this->fixNameFromAnyToCamelCase($projectName).'Contracts'
-            .'\\\\'.implode('\\', $packageNameExploded)."\\\\".$version."\";";
+            .'\\\\'.implode('\\\\', $packageNameExploded)."\\\\".$version."\";";
         $fileContent .= "\noption php_metadata_namespace = \""
             .$this->fixNameFromAnyToCamelCase($projectOwner)
             .'\\\\'.$this->fixNameFromAnyToCamelCase($projectName).'Contracts'
