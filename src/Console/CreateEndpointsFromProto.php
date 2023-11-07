@@ -212,7 +212,7 @@ class CreateEndpointsFromProto extends Command
                     if ($versionDir === '.' || $versionDir === '..' || !is_dir('/var/www/php/protoGenerated/' . $serviceDir.'/'. $subServiceDir . '/' . $versionDir)) continue;
 
                     $interfacePaths = [];
-                    echo 'lets scan '.'/var/www/php/protoGenerated/' . $serviceDir .'/'. $subServiceDir . '/' . $versionDir."\n";
+
                     foreach (scandir('/var/www/php/protoGenerated/' . $serviceDir .'/'. $subServiceDir . '/' . $versionDir) as $filePath) {
                         if ($filePath === '.' || $filePath === '..' || is_dir('/var/www/php/protoGenerated/' . $serviceDir.'/'. $subServiceDir . '/' . $versionDir . '/' . $filePath)) continue;
                         if (str_ends_with($filePath, 'Interface.php')) {
