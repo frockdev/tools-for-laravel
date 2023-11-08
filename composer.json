@@ -15,7 +15,8 @@
         "nette/php-generator": "^4.0",
         "friendsofphp/php-cs-fixer": "^3.19",
         "grpc/grpc": "v1.57.0",
-        "spatie/laravel-data": "3.9.2"
+        "spatie/laravel-data": "3.9.2",
+        "jonahgeorge/jaeger-client-php": "1.5.0"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "v2.13.0"

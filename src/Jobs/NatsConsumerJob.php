@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use OpenTracing\Tracer;
 
 class NatsConsumerJob implements ShouldQueue
 {
@@ -22,8 +23,19 @@ class NatsConsumerJob implements ShouldQueue
         $this->natsMessageObject = $natsMessageObject;
     }
 
-    public function handle(NatsEndpointCaller $endpointCaller)
+    public function handle(NatsEndpointCaller $endpointCaller, Tracer $tracer)
     {
-        $endpointCaller->call([], $this->natsMessageObject);
+        $scope = $tracer->startActiveSpan('natsJobHandleStarted', [
+            'tags' => [
+                'nats.subject' => $this->natsMessageObject->subject,
+                'traceId' => $this->natsMessageObject->traceId,
+            ],
+        ]);
+        $endpointCaller->call(
+            [
+                config('frock.natsTraceIdCtxHeader', 'X-Trace-ID') => $this->natsMessageObject->traceId,
+            ],
+        $this->natsMessageObject);
+        $scope->close();
     }
 }

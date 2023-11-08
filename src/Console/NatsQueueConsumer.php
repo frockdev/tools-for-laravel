@@ -2,13 +2,13 @@
 
 namespace FrockDev\ToolsForLaravel\Console;
 
+use FrockDev\ToolsForLaravel\Events\RequestGot;
 use FrockDev\ToolsForLaravel\Jobs\NatsConsumerJob;
 use FrockDev\ToolsForLaravel\MessageObjects\NatsMessageObject;
 use FrockDev\ToolsForLaravel\Nats\Message;
 use FrockDev\ToolsForLaravel\Nats\Messengers\GrpcNatsMessenger;
-use Illuminate\Bus\Dispatcher;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
+use OpenTracing\Tracer;
 
 class NatsQueueConsumer extends Command
 {
@@ -22,7 +22,7 @@ class NatsQueueConsumer extends Command
             $natsMessenger->subscribeAsAQueueWorker(
                 $channelName,
                 function (Message $message) {
-//                    Log::debug('We got the message from channel: '.$message->getSubject()."\n".print_r($message, true));
+                    RequestGot::dispatch();
                     $endpointInfo = config('natsEndpoints.'.$message->getSubject());
                     $natsMessageObject = new NatsMessageObject(
                         $message->getSubject(),
@@ -31,7 +31,8 @@ class NatsQueueConsumer extends Command
                         $message->getSid(),
                         $endpointInfo['endpoint'],
                         $endpointInfo['inputType'],
-                        $endpointInfo['outputType']
+                        $endpointInfo['outputType'],
+                        //todo should be traceId when we walk through HSUB and have headers over NATS
                     );
                     $job = new NatsConsumerJob($natsMessageObject);
                     dispatch($job);
