@@ -2,6 +2,8 @@
 
 namespace FrockDev\ToolsForLaravel;
 
+use Basis\Nats\Client;
+use Basis\Nats\Configuration;
 use FrockDev\ToolsForLaravel\Console\AddToArrayToGrpcObjects;
 use FrockDev\ToolsForLaravel\Console\CreateEndpointsFromProto;
 use FrockDev\ToolsForLaravel\Console\AddNamespacesToComposerJson;
@@ -17,13 +19,8 @@ use FrockDev\ToolsForLaravel\EventLIsteners\BeforeEndpointCalledListener;
 use FrockDev\ToolsForLaravel\EventLIsteners\RequestGotListener;
 use FrockDev\ToolsForLaravel\Events\BeforeEndpointCalled;
 use FrockDev\ToolsForLaravel\Events\RequestGot;
-use FrockDev\ToolsForLaravel\ExceptionHandlers\ExceptionHandler;
-use FrockDev\ToolsForLaravel\Nats\ConnectionOptions;
-use FrockDev\ToolsForLaravel\Nats\EncodedConnection;
-use FrockDev\ToolsForLaravel\Nats\Encoders\GRPCEncoder;
-use FrockDev\ToolsForLaravel\Nats\Encoders\JSONEncoder;
-use FrockDev\ToolsForLaravel\Nats\Messengers\GrpcNatsMessenger;
-use FrockDev\ToolsForLaravel\Nats\Messengers\JsonNatsMessenger;
+use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
+use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Jaeger\Config;
@@ -48,37 +45,26 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(GenerateTestsForPublicMethodsOnModules::class);
 
 
-//        $this->app->bind(GrpcNatsMessenger::class, function ($app) {
-//            $options = new Configuration([
-//                'host'=>config('nats.address'),
-//                'user'=>config('nats.user'),
-//                'pass'=>config('nats.pass'),
-//                'timeout'=>config('nats.timeout', 30),
-//            ]);
-//            $client = new Client($options);
-//            return new GrpcNatsMessenger($client);
-//        });
-
-        $this->app->bind(JsonNatsMessenger::class, function ($app) {
-            $options = new ConnectionOptions([
+        $this->app->bind(GrpcNatsMessenger::class, function ($app) {
+            $options = new Configuration([
                 'host'=>config('nats.address'),
                 'user'=>config('nats.user'),
-                'pass'=>config('nats.pass')
+                'pass'=>config('nats.pass'),
+                'timeout'=>config('nats.timeout', 30),
             ]);
-            $connection = new EncodedConnection($options, new JsonEncoder());
-            $connection->setDebug(true);
-            return new JsonNatsMessenger($connection);
+            $client = new Client($options);
+            return new GrpcNatsMessenger($client);
         });
 
-        $this->app->bind(GrpcNatsMessenger::class, function ($app) {
-            $options = new ConnectionOptions([
+        $this->app->bind(JsonNatsMessenger::class, function ($app) {
+            $options = new Configuration([
                 'host'=>config('nats.address'),
                 'user'=>config('nats.user'),
-                'pass'=>config('nats.pass')
+                'pass'=>config('nats.pass'),
+                'timeout'=>config('nats.timeout', 30),
             ]);
-            $connection = new EncodedConnection($options, new GRPCEncoder());
-            $connection->setDebug(true);
-            return new GrpcNatsMessenger($connection);
+            $client = new Client($options);
+            return new JsonNatsMessenger($client);
         });
 
         $this->app->singleton(Tracer::class, function($app) {
