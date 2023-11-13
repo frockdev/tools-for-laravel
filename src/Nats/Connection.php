@@ -11,6 +11,7 @@ namespace FrockDev\ToolsForLaravel\Nats;
 class Connection
 {
 
+    
     /**
      * Show DEBUG info?
      *

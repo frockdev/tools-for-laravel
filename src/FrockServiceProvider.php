@@ -50,6 +50,8 @@ class FrockServiceProvider extends ServiceProvider
         $this->app->bind(JsonNatsMessenger::class, function ($app) {
             $options = new ConnectionOptions([
                 'host'=>config('nats.address'),
+                'user'=>config('nats.user'),
+                'pass'=>config('nats.pass')
             ]);
             $connection = new EncodedConnection($options, new JsonEncoder());
             $connection->setDebug(true);
@@ -59,6 +61,8 @@ class FrockServiceProvider extends ServiceProvider
         $this->app->bind(GrpcNatsMessenger::class, function ($app) {
             $options = new ConnectionOptions([
                 'host'=>config('nats.address'),
+                'user'=>config('nats.user'),
+                'pass'=>config('nats.pass')
             ]);
             $connection = new EncodedConnection($options, new GRPCEncoder());
             $connection->setDebug(true);

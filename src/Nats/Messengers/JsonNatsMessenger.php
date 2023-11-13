@@ -18,6 +18,12 @@ class JsonNatsMessenger
         }
     }
 
+    public function sendMessageAsRequest(string $channel, mixed $message): array
+    {
+        $result = $this->connection->request($channel, $message);
+        return $result->getBody();
+    }
+
     public function sendMessageToChannel(string $channel, mixed $message)
     {
         $this->connection->publish($channel, $message);

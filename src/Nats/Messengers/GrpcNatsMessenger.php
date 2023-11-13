@@ -23,10 +23,10 @@ class GrpcNatsMessenger
         $this->connection->publish($channel, $message);
     }
 
-    public function sendMessageAsRequest(string $channel, Message $message): Message
+    public function sendMessageAsRequest(string $channel, Message $message, string $messageTypeToDecode): Message
     {
         /** @var \FrockDev\ToolsForLaravel\Nats\Message $result */
-        $result = $this->connection->request($channel, $message);
+        $result = $this->connection->request($channel, $message, null, $messageTypeToDecode);
         return $result->getBody();
     }
 

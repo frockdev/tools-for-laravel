@@ -53,15 +53,13 @@ class EncodedConnection extends Connection
      * @param \Closure $callback
      * @return void
      */
-    public function request($subject, $payload, ?\Closure $callback = null)
+    public function request($subject, $payload, ?\Closure $callback = null, ?string $messageTypeForEncoder = null)
     {
-        $payloadInfo = config('natsEndpoints.'.$subject);
-        $messageTypeForEncoder = $payloadInfo['outputType'];
         $returnMessage = null;
         $inbox = uniqid('_INBOX.');
         $sid   = $this->subscribe(
             $inbox,
-            function (Message $message) use (&$returnMessage) {
+            $callback ?? function (Message $message) use (&$returnMessage) {
                 $returnMessage = $message;
             },
             $messageTypeForEncoder
