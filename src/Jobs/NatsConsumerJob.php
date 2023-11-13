@@ -37,5 +37,6 @@ class NatsConsumerJob implements ShouldQueue
             ],
         $this->natsMessageObject);
         $scope->close();
+        $tracer->flush();
     }
 }
