@@ -20,7 +20,7 @@ class GrpcNatsMessenger
     {
         $function = function (Msg $natsMsg) use ($callback, $natsSubjectConfig) {
             /** @var Message $grpcObject */
-            $grpcObject = new ($natsSubjectConfig['outputType'])();
+            $grpcObject = new ($natsSubjectConfig['inputType'])();
             $grpcObject->mergeFromJsonString($natsMsg->payload->body);
 
             $result = new NatsMessageObject(
@@ -99,7 +99,7 @@ class GrpcNatsMessenger
     {
         $function = function (Msg $natsMsg) use ($callback, $natsSubjectConfig) {
             /** @var Message $grpcObject */
-            $grpcObject = new ($natsSubjectConfig['outputType'])();
+            $grpcObject = new ($natsSubjectConfig['inputType'])();
             $grpcObject->mergeFromJsonString($natsMsg->payload->body);
 
             $result = new NatsMessageObject(
