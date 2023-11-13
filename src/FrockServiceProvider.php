@@ -19,12 +19,14 @@ use FrockDev\ToolsForLaravel\EventLIsteners\BeforeEndpointCalledListener;
 use FrockDev\ToolsForLaravel\EventLIsteners\RequestGotListener;
 use FrockDev\ToolsForLaravel\Events\BeforeEndpointCalled;
 use FrockDev\ToolsForLaravel\Events\RequestGot;
+use FrockDev\ToolsForLaravel\NatsCustomization\CustomNatsClient;
 use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
+use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Jaeger\Config;
-use OpenTracing\Mock\MockTracer;
+use OpenTracing\NoopTracer;
 use OpenTracing\Tracer;
 use const Jaeger\SAMPLER_TYPE_CONST;
 
@@ -52,7 +54,7 @@ class FrockServiceProvider extends ServiceProvider
                 'pass'=>config('nats.pass'),
                 'timeout'=>config('nats.timeout', 30),
             ]);
-            $client = new Client($options);
+            $client = new CustomNatsClient($options, $app->make(Logger::class));
             return new GrpcNatsMessenger($client);
         });
 
@@ -63,7 +65,7 @@ class FrockServiceProvider extends ServiceProvider
                 'pass'=>config('nats.pass'),
                 'timeout'=>config('nats.timeout', 30),
             ]);
-            $client = new Client($options);
+            $client = new CustomNatsClient($options, $app->make(Logger::class));
             return new JsonNatsMessenger($client);
         });
 
@@ -86,7 +88,7 @@ class FrockServiceProvider extends ServiceProvider
                 );
                 return $config->initializeTracer();
             } else {
-                return new MockTracer();
+                return new NoopTracer();
             }
         });
     }
