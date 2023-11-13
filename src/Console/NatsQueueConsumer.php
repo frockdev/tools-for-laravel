@@ -10,11 +10,13 @@ use Illuminate\Console\Command;
 
 class NatsQueueConsumer extends Command
 {
-    protected $signature = 'frock:nats-consumer';
+    protected $signature = 'frock:nats-consumer {--messageLimit=1}';
 
     public function handle(GrpcNatsMessenger $natsMessenger) {
 
         $natsEndpoints = config('natsEndpoints');
+
+        $messagesGot = 0;
 
         foreach ($natsEndpoints as $channelName=>$endpointInfo) {
             if (array_key_exists('stream', $endpointInfo)
@@ -24,7 +26,8 @@ class NatsQueueConsumer extends Command
             ) {
                 $natsMessenger->subscribeToJetStream(
                     $endpointInfo,
-                    function (NatsMessageObject $message) {
+                    function (NatsMessageObject $message) use (&$messagesGot) {
+                        $messagesGot++;
                         RequestGot::dispatch();
                         $job = new NatsConsumerJob($message);
                         dispatch($job);
@@ -33,7 +36,8 @@ class NatsQueueConsumer extends Command
             } else {
                 $natsMessenger->subscribeAsQueueSubscriber(
                     $endpointInfo,
-                    function (NatsMessageObject $message) {
+                    function (NatsMessageObject $message) use (&$messagesGot) {
+                        $messagesGot++;
                         RequestGot::dispatch();
                         $job = new NatsConsumerJob($message);
                         dispatch($job);
@@ -41,6 +45,15 @@ class NatsQueueConsumer extends Command
                 );
             }
         }
-        $natsMessenger->process();
+
+        while(true) {
+            echo 'processing...'."\n";
+            $natsMessenger->process();
+            echo 'loop'."\n";
+            if ($messagesGot>=$this->option('messageLimit')) {
+                echo 'limit Reached '."\n";
+                break;
+            }
+        }
     }
 }

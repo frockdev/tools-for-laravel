@@ -75,7 +75,7 @@ class LoadNatsEndpoints extends Command
                         if ($attribute->consumerName!==null) {
                             $natsEndpointsConfigFile .= "\t\t'consumerName' => '" . $attribute->consumerName . "',\n";
                         }
-                        $natsEndpointsConfigFile .= "\t\t'subject' => 'env('" . $envVarName . "_NATS_CHANNEL', '" . $attribute->subject . "')',\n";
+                        $natsEndpointsConfigFile .= "\t\t'subject' => env('" . $envVarName . "_NATS_CHANNEL', '" . $attribute->subject . "'),\n";
                         $natsEndpointsConfigFile .= "\t\t'endpoint' => '" . $endpointClass . "',\n";
                         $natsEndpointsConfigFile .= "\t\t'inputType' => '" . $inputType . "',\n";
                         $natsEndpointsConfigFile .= "\t\t'outputType' => '" . $outputType . "',\n";
