@@ -47,6 +47,18 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(AddToArrayToGrpcObjects::class);
         $this->commands(GenerateTestsForPublicMethodsOnModules::class);
 
+
+//        $this->app->bind(GrpcNatsMessenger::class, function ($app) {
+//            $options = new Configuration([
+//                'host'=>config('nats.address'),
+//                'user'=>config('nats.user'),
+//                'pass'=>config('nats.pass'),
+//                'timeout'=>config('nats.timeout', 30),
+//            ]);
+//            $client = new Client($options);
+//            return new GrpcNatsMessenger($client);
+//        });
+
         $this->app->bind(JsonNatsMessenger::class, function ($app) {
             $options = new ConnectionOptions([
                 'host'=>config('nats.address'),
