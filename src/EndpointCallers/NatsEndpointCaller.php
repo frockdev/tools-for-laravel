@@ -4,8 +4,8 @@ namespace FrockDev\ToolsForLaravel\EndpointCallers;
 
 use FrockDev\ToolsForLaravel\Exceptions\NatsHandledException;
 use FrockDev\ToolsForLaravel\MessageObjects\NatsMessageObject;
-use FrockDev\ToolsForLaravel\Nats\Messengers\GrpcNatsMessenger;
-use FrockDev\ToolsForLaravel\Nats\Messengers\JsonNatsMessenger;
+use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
+use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Log;
 use OpenTracing\Tracer;
