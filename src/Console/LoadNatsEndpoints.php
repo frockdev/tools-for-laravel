@@ -70,10 +70,10 @@ class LoadNatsEndpoints extends Command
                         $envVarName = $this->convertSubjectToEnvVarName($attribute->subject);
                         $natsEndpointsConfigFile .= "\tenv('" . $envVarName . "_NATS_CHANNEL', '" . $attribute->subject . "') => [\n";
                         if ($attribute->stream!==null) {
-                            $natsEndpointsConfigFile .= "\t\t'stream' => '" . $attribute->stream . "',\n";
+                            $natsEndpointsConfigFile .= "\t\t'stream' => env('" . $envVarName . "_NATS_STREAM', '" . $attribute->stream . "'),\n";
                         }
                         if ($attribute->consumerName!==null) {
-                            $natsEndpointsConfigFile .= "\t\t'consumerName' => '" . $attribute->consumerName . "',\n";
+                            $natsEndpointsConfigFile .= "\t\t'consumerName' => env('" . $envVarName . "_NATS_CONSUMER_NAME', '" . $attribute->consumerName . "'),\n";
                         }
                         $natsEndpointsConfigFile .= "\t\t'subject' => env('" . $envVarName . "_NATS_CHANNEL', '" . $attribute->subject . "'),\n";
                         $natsEndpointsConfigFile .= "\t\t'endpoint' => '" . $endpointClass . "',\n";
