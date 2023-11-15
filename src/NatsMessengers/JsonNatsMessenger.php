@@ -36,6 +36,14 @@ class JsonNatsMessenger
         return $result;
     }
 
+    public function subscribeAsChannelSubscriber(string $channel, callable $callback)
+    {
+        $function = function (Msg $natsMsg) use ($callback) {
+            $callback(json_decode($natsMsg->payload->body, true));
+        };
+        $this->client->subscribe( $channel, $function);
+    }
+
     public function process()
     {
         $this->client->process($this->client->configuration->timeout);

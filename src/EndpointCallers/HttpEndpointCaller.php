@@ -2,7 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\EndpointCallers;
 
-use FrockDev\ToolsForLaravel\Exceptions\NatsHandledException;
+use FrockDev\ToolsForLaravel\Exceptions\HttpHandledException;
 use FrockDev\ToolsForLaravel\MessageObjects\HttpMessageObject;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Foundation\Application;
@@ -46,7 +46,7 @@ class HttpEndpointCaller
                 'transport'=>'http',
                 'inputMessage'=>$messageObject->body->serializeToJsonString()
             ]);
-            throw new NatsHandledException(
+            throw new HttpHandledException(
                 $e->getMessage(),
                 $e->getCode(),
                 $e

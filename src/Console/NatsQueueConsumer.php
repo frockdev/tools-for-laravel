@@ -7,6 +7,7 @@ use FrockDev\ToolsForLaravel\Jobs\NatsConsumerJob;
 use FrockDev\ToolsForLaravel\MessageObjects\NatsMessageObject;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class NatsQueueConsumer extends Command
 {
@@ -37,6 +38,7 @@ class NatsQueueConsumer extends Command
                 $natsMessenger->subscribeAsQueueSubscriber(
                     $endpointInfo,
                     function (NatsMessageObject $message) use (&$messagesGot) {
+
                         $messagesGot++;
                         RequestGot::dispatch();
                         $job = new NatsConsumerJob($message);
@@ -48,7 +50,12 @@ class NatsQueueConsumer extends Command
 
         while(true) {
             echo 'processing...'."\n";
-            $natsMessenger->process();
+            try {
+                $natsMessenger->process();
+            } catch (\Throwable $e) {
+                Log::error($e->getMessage(), ['exception'=>$e]);
+                echo 'error'."\n";
+            }
             echo 'loop'."\n";
             if ($messagesGot>=$this->option('messageLimit')) {
                 echo 'limit Reached '."\n";

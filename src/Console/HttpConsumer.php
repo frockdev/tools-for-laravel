@@ -4,9 +4,11 @@ namespace FrockDev\ToolsForLaravel\Console;
 
 use FrockDev\ToolsForLaravel\EndpointCallers\HttpEndpointCaller;
 use FrockDev\ToolsForLaravel\Events\RequestGot;
+use FrockDev\ToolsForLaravel\Exceptions\HttpHandledException;
 use FrockDev\ToolsForLaravel\MessageObjects\HttpMessageObject;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Console\Command;
+use Illuminate\Validation\ValidationException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use OpenTracing\Tracer;
@@ -99,6 +101,7 @@ class HttpConsumer extends Command
                     config('frock.httpTraceIdCtxHeader', 'X-Trace-ID') => $messageObject->traceId,
                 ], $response->serializeToJsonString()));
             } catch (\Throwable $e) {
+                if ($e->getPrevious() instanceof ValidationException) $psr7->respond($this->respond422($e));
                 if ($e->getCode()>0) {
                     $psr7->respond(
                         new Response(
@@ -128,6 +131,20 @@ class HttpConsumer extends Command
             $scope->close();
             $tracer->flush();
         }
+    }
+
+    private function respond422(HttpHandledException $e): Response {
+        return new Response(
+            422,
+            [
+                'Content-Type' => 'application/json',
+                $e->getTraceId()
+            ], json_encode([
+                'error' => true,
+                'errorMessage' => $e->getMessage(),
+                'errorCode' => 422,
+            ])
+        );
     }
 
     private function addHeadersToContext(?\Psr\Http\Message\ServerRequestInterface $request, array $context): array

@@ -17,15 +17,19 @@ class AddToArrayToGrpcObjects extends Command
             if ($serviceDir === '.' || $serviceDir === '..' || !is_dir('/var/www/php/protoGenerated/' . $serviceDir)) continue;
             // это сервисы
 
-            foreach (scandir('/var/www/php/protoGenerated/' . $serviceDir) as $versionDir) {
+            foreach (scandir('/var/www/php/protoGenerated/'.$serviceDir) as $subServiceDir) {
+                if ($subServiceDir === '.' || $subServiceDir === '..' || !is_dir('/var/www/php/protoGenerated/' . $serviceDir.'/'.$subServiceDir)) continue;
+                // это сервисы
+
+            foreach (scandir('/var/www/php/protoGenerated/' . $serviceDir.'/'.$subServiceDir) as $versionDir) {
                 // это версии обслуживаемых подсеврисов
-                if ($versionDir === '.' || $versionDir === '..' || !is_dir('/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir)) continue;
+                if ($versionDir === '.' || $versionDir === '..' || !is_dir('/var/www/php/protoGenerated/' . $serviceDir.'/'.$subServiceDir . '/' . $versionDir)) continue;
 
 
-                foreach (scandir('/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir) as $filePath) {
-                    if ($filePath === '.' || $filePath === '..' || is_dir('/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir . '/' . $filePath)) continue;
+                foreach (scandir('/var/www/php/protoGenerated/' . $serviceDir.'/'.$subServiceDir . '/' . $versionDir) as $filePath) {
+                    if ($filePath === '.' || $filePath === '..' || is_dir('/var/www/php/protoGenerated/' . $serviceDir. '/'.$subServiceDir . '/' . $versionDir . '/' . $filePath)) continue;
 
-                    $file = file_get_contents('/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir . '/' . $filePath);
+                    $file = file_get_contents('/var/www/php/protoGenerated/' . $serviceDir. '/'.$subServiceDir . '/' . $versionDir . '/' . $filePath);
                     $namespaceRegularExp = '/namespace (.*);/';
                     preg_match($namespaceRegularExp, $file, $matches);
                     if (!isset($matches[1])) {
@@ -40,10 +44,11 @@ class AddToArrayToGrpcObjects extends Command
                         continue;
                     }
 
-                    $this->makeObjectCorrectlySerializable('/var/www/php/protoGenerated/' . $serviceDir . '/' . $versionDir . '/' . $filePath, $namespace);
+                    $this->makeObjectCorrectlySerializable('/var/www/php/protoGenerated/' . $serviceDir.'/'.$subServiceDir . '/' . $versionDir . '/' . $filePath, $namespace);
 
                 }
             }
+        }
         }
     }
 
