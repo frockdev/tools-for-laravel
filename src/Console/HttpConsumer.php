@@ -101,31 +101,39 @@ class HttpConsumer extends Command
                     config('frock.httpTraceIdCtxHeader', 'X-Trace-ID') => $messageObject->traceId,
                 ], $response->serializeToJsonString()));
             } catch (\Throwable $e) {
-                if ($e->getPrevious() instanceof ValidationException) $psr7->respond($this->respond422($e));
-                if ($e->getCode()>0) {
-                    $psr7->respond(
-                        new Response(
-                            $e->getCode(),
-                            [
-                                'Content-Type' => 'application/json',
-                                config('frock.httpTraceIdCtxHeader', 'X-Trace-ID') => $messageObject->traceId ?? 'noTraceId',
-                            ], json_encode([
-                                'error' => true,
-                                'errorMessage' => $e->getMessage(),
-                                'errorCode' => $e->getCode(),
-                            ])
-                        )
-                    );
-                } else {
-                    $psr7->respond(new Response(500, [
-                        'Content-Type' => 'application/json',
-                        config('frock.httpTraceIdCtxHeader', 'X-Trace-ID') => $messageObject->traceId,
-                    ], json_encode([
-                        'error' => true,
-                        'errorMessage' => $e->getMessage(),
-                        'errorCode' => $e->getCode(),
-                    ])));
-                    $psr7->getWorker()->error((string)$e);
+                $responded = false;
+                if ($e instanceof HttpHandledException) {
+                    if ($e->getPrevious() instanceof ValidationException) {
+                        $responded = true;
+                        $psr7->respond($this->respond422($e));
+                    }
+                }
+                if ($responded === false) {
+                    if ($e->getCode()>0) {
+                        $psr7->respond(
+                            new Response(
+                                $e->getCode(),
+                                [
+                                    'Content-Type' => 'application/json',
+                                    config('frock.httpTraceIdCtxHeader', 'X-Trace-ID') => $messageObject->traceId ?? 'noTraceId',
+                                ], json_encode([
+                                    'error' => true,
+                                    'errorMessage' => $e->getMessage(),
+                                    'errorCode' => $e->getCode(),
+                                ])
+                            )
+                        );
+                    } else {
+                        $psr7->respond(new Response(500, [
+                            'Content-Type' => 'application/json',
+                            config('frock.httpTraceIdCtxHeader', 'X-Trace-ID') => $messageObject->traceId,
+                        ], json_encode([
+                            'error' => true,
+                            'errorMessage' => $e->getMessage(),
+                            'errorCode' => $e->getCode(),
+                        ])));
+                        $psr7->getWorker()->error((string)$e);
+                    }
                 }
             }
             $scope->close();
