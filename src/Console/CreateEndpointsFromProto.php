@@ -27,6 +27,13 @@ class CreateEndpointsFromProto extends Command
         $constructor->setBody(
             '$this->container = $container;'
         );
+//        $constructor->setBody(
+//            '$this->container = $container;'."\n"
+//            .'$this->callCountMetric = \\FrockDev\\ToolsForLaravel\\BaseMetrics\\EndpointCallsCountMetric::declare();'
+//        );
+//        $innerGrpcController->addProperty('callCountMetric')
+//            ->setType(\FrockDev\ToolsForLaravel\BaseMetrics\EndpointCallsCountMetric::class)
+//            ->setProtected();
         $innerGrpcController->addProperty('container')
             ->setType(Container::class)
             ->setPrivate();
@@ -50,6 +57,16 @@ class CreateEndpointsFromProto extends Command
             '$transportController->context = $ctx->getValues();' . "\n" .
             'return $transportController($in);'
         );
+//        $innerControllerMethod->setBody(
+//            '$this->callCountMetric->inc([\''
+//            .str_replace('InnerController', '', $innerGrpcController->getName())
+//            .'::'
+//            .str_replace('InnerController', '', $method->getName()).'\']);'."\n"
+//            .'/** @var \\App\\Modules\\' . $transportFullName . ' $transportController */' . "\n" .
+//            '$transportController = $this->container->get(\\App\\Modules\\' . $transportFullName . '::class);' . "\n" .
+//            '$transportController->context = $ctx->getValues();' . "\n" .
+//            'return $transportController($in);'
+//        );
     }
 
     /**
@@ -87,7 +104,7 @@ class CreateEndpointsFromProto extends Command
      * @return \Nette\Utils\Type|string
      * @throws \Exception
      */
-    public function createInvokeMethod(ClassType $newAbstractClass, \Nette\PhpGenerator\Method $method): \Nette\Utils\Type|string
+    public function createInvokeMethod(ClassType $newAbstractClass, \Nette\PhpGenerator\Method $method, string $metricLabel): \Nette\Utils\Type|string
     {
         $invokeMethod = $newAbstractClass->addMethod('__invoke')->setPublic();
         foreach ($method->getParameters() as $parameter) {
@@ -103,7 +120,7 @@ class CreateEndpointsFromProto extends Command
             ->setType($newMethodParameterType);
 
         $invokeMethod->setBody(
-            $this->generateInvokeMethodBody()
+            $this->generateInvokeMethodBody($metricLabel)
         );
 
         $currentReturnType = $method->getReturnType();
@@ -118,9 +135,18 @@ class CreateEndpointsFromProto extends Command
     /**
      * @return string
      */
-    public function generateInvokeMethodBody(): string
+    public function generateInvokeMethodBody(string $metricLabel): string
     {
-        return 'foreach ($this->preInterceptors as $interceptor) {' . "\n" .
+        $invoke = '';
+        $invoke .= 'if (is_null($this->callCountMetric)) {' . "\n";
+        $invoke .= '    $this->callCountMetric = \\FrockDev\\ToolsForLaravel\\BaseMetrics\\EndpointCallsCountMetric::declare();' . "\n";
+        $invoke .= '}' . "\n";
+        $invoke .= 'if (is_null($this->callDurationHistogramMetric)) {' . "\n";
+        $invoke .= '    $this->callDurationHistogramMetric = \\FrockDev\\ToolsForLaravel\\BaseMetrics\\EndpointCallsDurationMetric::declare();' . "\n";
+        $invoke .= '}' . "\n";
+        $invoke .= '$this->callCountMetric->inc([\''.$metricLabel.'\']);'."\n";
+        $invoke .= '$timeStart = microtime(true);'."\n";
+        $invoke .=  'foreach ($this->preInterceptors as $interceptor) {' . "\n" .
             '    /** @var \\' . PreInterceptorInterface::class . ' $interceptor */' . "\n" .
             '      $interceptor->intercept($this->context, $dto);' . "\n" .
             '}' . "\n" .
@@ -129,7 +155,9 @@ class CreateEndpointsFromProto extends Command
             '    /** @var \\' . PostInterceptorInterface::class . ' $interceptor */' . "\n" .
             '      $interceptor->intercept($this->context, $result, $result);' . "\n" .
             '}' . "\n" .
+            '$this->callDurationHistogramMetric->observe(microtime(true) - $timeStart, [\''.$metricLabel.'\']);'."\n".
             'return $result;';
+        return $invoke;
     }
 
     /**
@@ -255,12 +283,25 @@ class CreateEndpointsFromProto extends Command
                             //                        $this->injectBusManager($newAbstractClass);
                             $newAbstractClass->addProperty('context')
                                 ->setType('array');
-
+                            $newAbstractClass->addProperty('callCountMetric')
+                                ->setType(\FrockDev\ToolsForLaravel\BaseMetrics\EndpointCallsCountMetric::class)
+                                ->setNullable()
+                                ->setValue(null)
+                                ->setProtected();
+                            $newAbstractClass->addProperty('callDurationHistogramMetric')
+                                ->setType(\FrockDev\ToolsForLaravel\BaseMetrics\EndpointCallsDurationMetric::class)
+                                ->setNullable()
+                                ->setValue(null)
+                                ->setProtected();
+                            $newAbstractEndpointNamespace->addUse(\FrockDev\ToolsForLaravel\BaseMetrics\EndpointCallsCountMetric::class);
                             $this->createInterceptorsArrays($newAbstractClass);
 
                             $newAbstractEndpointNamespace->add($newAbstractClass);
 
-                            $invokeMethodDtoType = $this->createInvokeMethod($newAbstractClass, $method);
+                            $metricName = str_replace('InnerController', '', $innerGrpcController->getName())
+                                .'::' .$method->getName();
+
+                            $invokeMethodDtoType = $this->createInvokeMethod($newAbstractClass, $method, $metricName);
 
                             $this->createRunMethod($newAbstractClass, $invokeMethodDtoType, $method);
 

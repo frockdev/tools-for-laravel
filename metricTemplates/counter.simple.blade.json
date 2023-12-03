@@ -1,0 +1,67 @@
+{
+    "datasource": {
+        "uid": "$datasource"
+    },
+    "fieldConfig": {
+        "defaults": {
+            "mappings": [],
+            "noValue": "0",
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                    {
+                        "color": "red",
+                        "value": "{{ $redThreshold }}"
+                    },
+                    {
+                        "color": "orange",
+                        "value": "{{ $orangeThreshold }}"
+                    },
+                    {
+                        "color": "yellow",
+                        "value": "{{ $yellowThreshold }}"
+                    },
+                    {
+                        "color": "green",
+                        "value": "{{ $greenThreshold }}"
+                    }
+                ]
+            }
+        },
+        "overrides": []
+    },
+    "gridPos": {
+        "h": 2,
+        "w": 3
+    },
+    "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+            "calcs": [
+                "mean"
+            ],
+            "fields": "",
+            "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+    },
+    "pluginVersion": "10.1.5",
+    "targets": [
+        {
+            "datasource": {
+                "uid": "$datasource"
+            },
+            "expr": "avg_over_time({{ $metricName }}{app=\"main-merchant-php\"}[{{ $rateBy }}])",
+            "instant": true,
+            "interval": "",
+            "legendFormat": "",
+            "refId": "A"
+        }
+    ],
+    "title": "{{ $metricName }}",
+    "type": "stat"
+}

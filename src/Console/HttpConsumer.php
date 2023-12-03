@@ -4,6 +4,7 @@ namespace FrockDev\ToolsForLaravel\Console;
 
 use FrockDev\ToolsForLaravel\EndpointCallers\HttpEndpointCaller;
 use FrockDev\ToolsForLaravel\Events\RequestGot;
+use FrockDev\ToolsForLaravel\Events\WorkerListenStarted;
 use FrockDev\ToolsForLaravel\Exceptions\HttpHandledException;
 use FrockDev\ToolsForLaravel\MessageObjects\HttpMessageObject;
 use Google\Protobuf\Internal\Message;
@@ -32,6 +33,7 @@ class HttpConsumer extends Command
 
         while (true) {
             try {
+                WorkerListenStarted::dispatch();
                 $request = $psr7->waitRequest();
                 $scope = $tracer->startActiveSpan('httpRequestStarted', [
                     'tags' => [

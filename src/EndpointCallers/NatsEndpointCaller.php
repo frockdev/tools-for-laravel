@@ -6,6 +6,7 @@ use FrockDev\ToolsForLaravel\Exceptions\NatsHandledException;
 use FrockDev\ToolsForLaravel\MessageObjects\NatsMessageObject;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
 use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
+use Google\Protobuf\Internal\Message;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Log;
 use OpenTracing\Tracer;
@@ -21,10 +22,12 @@ class NatsEndpointCaller
         $this->tracer = $tracer;
     }
 
-    private function setTraceId(string $traceId) {
-        Log::shareContext(array_filter([
+    private function addInfoToLogContext(string $traceId, Message $message): void
+    {
+        Log::shareContext([
             'trace_id' => $traceId,
-        ]));
+            'input'=>$message->serializeToJsonString(),
+        ]);
     }
 
     public function call(array $context, NatsMessageObject $messageObject): void
@@ -39,7 +42,7 @@ class NatsEndpointCaller
         try {
             $endpointClass = $this->app->make($messageObject->endpointClass);
             $endpointClass->context = $context;
-            $this->setTraceId($messageObject->traceId);
+            $this->addInfoToLogContext($messageObject->traceId, $messageObject->body);
             $result = $endpointClass($messageObject->body);
             if ($messageObject->replyTo) {
                 /** @var GrpcNatsMessenger $messenger */

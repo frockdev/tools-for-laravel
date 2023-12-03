@@ -20,10 +20,12 @@ class HttpEndpointCaller
         $this->tracer = $tracer;
     }
 
-    private function shareTraceIdToLogs(string $traceId) {
-        Log::shareContext(array_filter([
+    private function addInfoToLogContext(string $traceId, Message $message): void
+    {
+        Log::shareContext([
             'trace_id' => $traceId,
-        ]));
+            'input'=>$message->serializeToJsonString(),
+        ]);
     }
 
     public function call(array $context, HttpMessageObject $messageObject): Message
@@ -37,7 +39,7 @@ class HttpEndpointCaller
         try {
             $endpointClass = $this->app->make($messageObject->endpointClass);
             $endpointClass->context = $context;
-            $this->shareTraceIdToLogs($messageObject->traceId);
+            $this->addInfoToLogContext($messageObject->traceId, $messageObject->body);
             return $endpointClass($messageObject->body);
         } catch (\Throwable $e) {
             Log::error($e->getMessage(), [

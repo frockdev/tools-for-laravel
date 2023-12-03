@@ -2,11 +2,11 @@
 
 namespace FrockDev\ToolsForLaravel;
 
-use Basis\Nats\Client;
 use Basis\Nats\Configuration;
 use FrockDev\ToolsForLaravel\Console\AddToArrayToGrpcObjects;
 use FrockDev\ToolsForLaravel\Console\CreateEndpointsFromProto;
 use FrockDev\ToolsForLaravel\Console\AddNamespacesToComposerJson;
+use FrockDev\ToolsForLaravel\Console\GenerateGrafanaMetrics;
 use FrockDev\ToolsForLaravel\Console\GenerateTestsForPublicMethodsOnModules;
 use FrockDev\ToolsForLaravel\Console\HttpConsumer;
 use FrockDev\ToolsForLaravel\Console\LoadHttpEndpoints;
@@ -17,17 +17,23 @@ use FrockDev\ToolsForLaravel\Console\RegisterEndpoints;
 use FrockDev\ToolsForLaravel\Console\ResetNamespacesInComposerJson;
 use FrockDev\ToolsForLaravel\EventLIsteners\BeforeEndpointCalledListener;
 use FrockDev\ToolsForLaravel\EventLIsteners\RequestGotListener;
+use FrockDev\ToolsForLaravel\EventLIsteners\WorkerListenStartedHandler;
 use FrockDev\ToolsForLaravel\Events\BeforeEndpointCalled;
 use FrockDev\ToolsForLaravel\Events\RequestGot;
+use FrockDev\ToolsForLaravel\Events\WorkerListenStarted;
+use FrockDev\ToolsForLaravel\MetricsAbstractions\Dummy\DummyMetrics;
+use FrockDev\ToolsForLaravel\MetricsAbstractions\Dummy\DummyRPC;
 use FrockDev\ToolsForLaravel\NatsCustomization\CustomNatsClient;
 use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
-use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Jaeger\Config;
 use OpenTracing\NoopTracer;
 use OpenTracing\Tracer;
+use Spiral\Goridge\RPC\RPC;
+use Spiral\RoadRunner\Metrics\Metrics;
 use const Jaeger\SAMPLER_TYPE_CONST;
 
 class FrockServiceProvider extends ServiceProvider
@@ -45,6 +51,7 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(RegisterEndpoints::class);
         $this->commands(AddToArrayToGrpcObjects::class);
         $this->commands(GenerateTestsForPublicMethodsOnModules::class);
+        $this->commands(GenerateGrafanaMetrics::class);
 
 
         $this->app->bind(GrpcNatsMessenger::class, function ($app) {
@@ -54,7 +61,7 @@ class FrockServiceProvider extends ServiceProvider
                 'pass'=>config('nats.pass'),
                 'timeout'=>config('nats.timeout', 30),
             ]);
-            $client = new CustomNatsClient($options, $app->make(Logger::class));
+            $client = new CustomNatsClient($options, Log::getLogger());
             return new GrpcNatsMessenger($client);
         });
 
@@ -65,7 +72,7 @@ class FrockServiceProvider extends ServiceProvider
                 'pass'=>config('nats.pass'),
                 'timeout'=>config('nats.timeout', 30),
             ]);
-            $client = new CustomNatsClient($options, $app->make(Logger::class));
+            $client = new CustomNatsClient($options, Log::getLogger());
             return new JsonNatsMessenger($client);
         });
 
@@ -91,6 +98,16 @@ class FrockServiceProvider extends ServiceProvider
                 return new NoopTracer();
             }
         });
+
+        $this->app->singleton(Metrics::class, function($app) {
+            if (config('frock.disableMetrics')===true) {
+                return new DummyMetrics(new DummyRPC());
+            } else {
+                return new Metrics(RPC::create('tcp://127.0.0.1:6001'));
+            }
+
+        });
+
     }
 
     public function boot()
@@ -98,6 +115,10 @@ class FrockServiceProvider extends ServiceProvider
 
         Event::listen(BeforeEndpointCalled::class,
             [BeforeEndpointCalledListener::class, 'handle']
+        );
+
+        Event::listen(WorkerListenStarted::class,
+            [WorkerListenStartedHandler::class, 'handle']
         );
 
         Event::listen(RequestGot::class,

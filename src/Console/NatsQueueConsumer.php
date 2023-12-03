@@ -3,6 +3,7 @@
 namespace FrockDev\ToolsForLaravel\Console;
 
 use FrockDev\ToolsForLaravel\Events\RequestGot;
+use FrockDev\ToolsForLaravel\Events\WorkerListenStarted;
 use FrockDev\ToolsForLaravel\Jobs\NatsConsumerJob;
 use FrockDev\ToolsForLaravel\MessageObjects\NatsMessageObject;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
@@ -49,6 +50,7 @@ class NatsQueueConsumer extends Command
         }
 
         while(true) {
+            WorkerListenStarted::dispatch();
             echo 'processing...'."\n";
             try {
                 $natsMessenger->process();
