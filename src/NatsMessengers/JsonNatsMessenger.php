@@ -36,6 +36,12 @@ class JsonNatsMessenger
         return $result;
     }
 
+    /**
+     * @param string $channel
+     * @param callable $callback
+     * @return void
+     * @deprecated
+     */
     public function subscribeAsChannelSubscriber(string $channel, callable $callback)
     {
         $function = function (Msg $natsMsg) use ($callback) {

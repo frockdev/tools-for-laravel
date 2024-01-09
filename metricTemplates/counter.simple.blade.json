@@ -55,7 +55,7 @@
             "datasource": {
                 "uid": "$datasource"
             },
-            "expr": "avg_over_time({{ $metricName }}{app=\"main-merchant-php\"}[{{ $rateBy }}])",
+            "expr": "avg_over_time({{ $metricName }}{app=\"main-{{ $applicationName }}\"}[{{ $rateBy }}])",
             "instant": true,
             "interval": "",
             "legendFormat": "",

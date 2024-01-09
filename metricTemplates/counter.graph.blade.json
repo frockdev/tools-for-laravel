@@ -74,7 +74,7 @@
             },
             "disableTextWrap": false,
             "editorMode": "code",
-            "expr": "irate({{ $metricName }}{app=\"main-merchant-php\"}[{{ $rateBy }}])",
+            "expr": "irate({{ $metricName }}{app=\"main-{{ $applicationName }}\"}[{{ $rateBy }}])",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,

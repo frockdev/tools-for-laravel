@@ -10,10 +10,10 @@ class EndpointCallsCountMetric extends CountGraphMetric
 
     const DESCRIPTION = 'Endpoint calls count';
 
-    const BOARD_NAME = 'Merchant-PHP/Endpoint Calls';
+    const BOARD_NAME = 'Endpoint Calls';
 
     const RENDERER = 'FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\CountGraphRenderer';
     const ROW_NAME = 'Endpoint Calls Counts';
 
-    const LABELS = ['endpoint'];
+    const LABEL_NAMES = ['endpoint'];
 }

@@ -4,11 +4,12 @@ namespace FrockDev\ToolsForLaravel\PreInterceptors;
 
 use Attribute;
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PreInterceptorInterface;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 #[Attribute(Attribute::TARGET_METHOD)]
-class ValidateEndpointInput implements PreInterceptorInterface
+class ValidateInput implements PreInterceptorInterface
 {
     private array $rules;
 
@@ -24,6 +25,8 @@ class ValidateEndpointInput implements PreInterceptorInterface
             if ($validator->fails()) {
                 throw new ValidationException($validator);
             }
+        } else {
+            Log::warning('Input message '.get_class($in).' does not have convertToArray method, skipping validation');
         }
 
     }

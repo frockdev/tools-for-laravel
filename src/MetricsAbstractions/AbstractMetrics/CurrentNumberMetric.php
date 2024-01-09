@@ -5,8 +5,7 @@ namespace FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetrics;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetric;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Controls\CounterControlTrait;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\CurrentNumberRenderer;
-use Spiral\RoadRunner\Metrics\Collector;
-use Spiral\RoadRunner\Metrics\Metrics;
+use Hyperf\Metric\Contract\MetricFactoryInterface as Metrics;
 
 abstract class CurrentNumberMetric extends AbstractMetric
 {
@@ -17,12 +16,4 @@ abstract class CurrentNumberMetric extends AbstractMetric
     const YELLOW_THRESHOLD = 2;
     const ORANGE_THRESHOLD = 1;
     const RED_THRESHOLD = 0;
-    public function register(Metrics $metrics)
-    {
-        $metrics->declare(static::METRIC_NAME,
-            Collector::counter()
-                ->withHelp(static::DESCRIPTION)
-                ->withLabels(...static::LABELS)
-        );
-    }
 }

@@ -4,6 +4,9 @@ namespace FrockDev\ToolsForLaravel\MessageObjects;
 
 use Google\Protobuf\Internal\Message;
 
+/**
+ * @deprecated
+ */
 class HttpMessageObject
 {
     public Message $body;

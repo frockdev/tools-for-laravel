@@ -2,7 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\EventLIsteners;
 
-use FrockDev\ToolsForLaravel\Events\BeforeEndpointCalled;
+use FrockDev\ToolsForLaravel\Events\BeforeRequestProcessedEvent;
 use FrockDev\ToolsForLaravel\Events\RequestGot;
 use Illuminate\Support\Facades\Log;
 

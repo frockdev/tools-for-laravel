@@ -16,6 +16,12 @@ class GrpcNatsMessenger
         $this->client = $client;
     }
 
+    /**
+     * @param array $natsSubjectConfig
+     * @param callable $callback
+     * @return void
+     * @deprecated
+     */
     public function subscribeToJetStream(array $natsSubjectConfig, callable $callback)
     {
         $function = function (Msg $natsMsg) use ($callback, $natsSubjectConfig) {
@@ -69,6 +75,12 @@ class GrpcNatsMessenger
         return $result;
     }
 
+    /**
+     * @param array $natsSubjectConfig
+     * @param callable $callback
+     * @return void
+     * @deprecated
+     */
     public function subscribeAsChannelSubscriber(array $natsSubjectConfig, callable $callback)
     {
         $function = function (Msg $natsMsg) use ($callback, $natsSubjectConfig) {
@@ -95,6 +107,12 @@ class GrpcNatsMessenger
         $this->client->subscribe( $natsSubjectConfig['subject'], $function);
     }
 
+    /**
+     * @param array $natsSubjectConfig
+     * @param callable $callback
+     * @return void
+     * @deprecated
+     */
     public function subscribeAsQueueSubscriber(array $natsSubjectConfig, callable $callback)
     {
         $function = function (Msg $natsMsg) use ($callback, $natsSubjectConfig) {

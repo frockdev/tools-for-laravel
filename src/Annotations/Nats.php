@@ -2,21 +2,34 @@
 
 namespace FrockDev\ToolsForLaravel\Annotations;
 
-#[\Attribute(\Attribute::TARGET_METHOD)]
+#[\Attribute(\Attribute::TARGET_CLASS)]
 class Nats
 {
     public string $subject;
-    public ?string $queueGroup = null;
 
-    public ?string $stream = null;
-    public ?string $consumerName = null;
+    public ?string $queue = null;
 
-    public function __construct(string $subject, ?string $queueGroup = null, ?string $stream = null, ?string $consumerName = null)
+    public ?string $name = 'unnamed';
+    public int $nums = 1;
+
+    public ?string $pool = null;
+
+    public int $processLag = 1;
+
+    public function __construct(
+        string $subject,
+        ?string $queue = null,
+        ?string $name = 'unnamed',
+        int $nums = 1,
+        ?string $pool = null,
+        int $processLag = 1
+    )
     {
         $this->subject = $subject;
-        $this->stream = $stream;
-        $this->consumerName = $consumerName;
-        $this->queueGroup = $queueGroup;
+        $this->queue = $queue;
+        $this->name = $name;
+        $this->nums = $nums;
+        $this->pool = $pool;
+        $this->processLag = $processLag;
     }
-
 }

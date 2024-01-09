@@ -5,10 +5,14 @@ namespace FrockDev\ToolsForLaravel\EndpointCallers;
 use FrockDev\ToolsForLaravel\Exceptions\HttpHandledException;
 use FrockDev\ToolsForLaravel\MessageObjects\HttpMessageObject;
 use Google\Protobuf\Internal\Message;
+use Hyperf\Context\Context;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Log;
 use OpenTracing\Tracer;
 
+/**
+ * @deprecated
+ */
 class HttpEndpointCaller
 {
     private Application $app;

@@ -328,7 +328,7 @@ class GenerateGrafanaMetrics extends Command
         if (!$classType->hasConstant('BOARD_NAME') || $classType->getConstant('BOARD_NAME')->getValue()==='') {
             throw new \Exception('Check Metrics. There is no BOARD_NAME constant in '.$classType->getName());
         }
-        return $classType->getConstant('BOARD_NAME')->getValue();
+        return 'GeneratedBoards/'.config('app.name').'/'.$classType->getConstant('BOARD_NAME')->getValue();
     }
 
     private function getBucketsFromClassType(ClassType $classType)

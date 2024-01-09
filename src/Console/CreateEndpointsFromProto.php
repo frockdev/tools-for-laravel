@@ -282,6 +282,17 @@ class CreateEndpointsFromProto extends Command
                             $newAbstractClass->setAbstract();
                             //                        $this->injectBusManager($newAbstractClass);
                             $newAbstractClass->addProperty('context')
+                                ->setType('array')
+                                ->setPrivate();
+                            $newAbstractClass->addMethod('getContext')
+                                ->setReturnType('array')
+                                ->setBody('return Context::get("endpoint_context_".get_called_class());')
+                                ->setPublic();
+                            $newAbstractClass->addMethod('setContext')
+                                ->setReturnType('void')
+                                ->setBody('Context::set("endpoint_context".get_called_class(), $context);')
+                                ->setPublic()
+                                ->addParameter('context')
                                 ->setType('array');
                             $newAbstractClass->addProperty('callCountMetric')
                                 ->setType(\FrockDev\ToolsForLaravel\BaseMetrics\EndpointCallsCountMetric::class)
@@ -297,6 +308,7 @@ class CreateEndpointsFromProto extends Command
                             $this->createInterceptorsArrays($newAbstractClass);
 
                             $newAbstractEndpointNamespace->add($newAbstractClass);
+                            $newAbstractEndpointNamespace->addUse(\Hyperf\Context\Context::class);
 
                             $metricName = str_replace('InnerController', '', $innerGrpcController->getName())
                                 .'::' .$method->getName();

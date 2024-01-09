@@ -3,7 +3,8 @@
 namespace FrockDev\ToolsForLaravel\MetricsAbstractions;
 
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\CurrentNumberRenderer;
-use Spiral\RoadRunner\Metrics\Metrics;
+use Hyperf\Metric\Contract\MetricFactoryInterface as Metrics;
+use Illuminate\Foundation\Application;
 
 abstract class AbstractMetric
 {
@@ -11,18 +12,17 @@ abstract class AbstractMetric
     const DESCRIPTION = '';
     const ROW_NAME = '';
     const BOARD_NAME = '';
-    const LABELS = [];
-    const BUCKETS = [];
+    const LABEL_NAMES = [];
+    const BUCKETS = [0.005, 0.01, 0.02, 0.04, 0.08, 0.15, 0.25, 0.50, 0.75, 1, 1.5, 3, 5, 8, 15];
     const FORMULAS = [];
     const RATE_BY = '1m';
     const RENDERER = CurrentNumberRenderer::class;
+    private Application $application;
 
     private function __construct()
     {
-
+        $this->application = app();
     }
-
-    abstract public function register(Metrics $metrics);
 
     /**
      * @internal
@@ -36,10 +36,11 @@ abstract class AbstractMetric
             app()->singleton(static::METRIC_NAME.'.'.static::class, static::class);
             $metric = new static();
             app()->instance(static::METRIC_NAME.'.'.static::class, $metric);
-            $metric->register(app()->make(Metrics::class));
+//            $metricManager = app()->get(\Hyperf\Nano\App::class)->getContainer()->get(Metrics::class);
+//            $metric->register($metricManager);
             return $metric;
         } else {
-            return app()->make(static::METRIC_NAME.'.'.static::class);
+            return app()->get(static::METRIC_NAME.'.'.static::class);
         }
     }
 }

@@ -3,26 +3,18 @@
 namespace FrockDev\ToolsForLaravel;
 
 use Basis\Nats\Configuration;
+use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\Console\AddToArrayToGrpcObjects;
+use FrockDev\ToolsForLaravel\Console\CollectAttributesToCache;
 use FrockDev\ToolsForLaravel\Console\CreateEndpointsFromProto;
 use FrockDev\ToolsForLaravel\Console\AddNamespacesToComposerJson;
 use FrockDev\ToolsForLaravel\Console\GenerateGrafanaMetrics;
-use FrockDev\ToolsForLaravel\Console\GenerateTestsForPublicMethodsOnModules;
-use FrockDev\ToolsForLaravel\Console\HttpConsumer;
-use FrockDev\ToolsForLaravel\Console\LoadHttpEndpoints;
-use FrockDev\ToolsForLaravel\Console\LoadNatsEndpoints;
-use FrockDev\ToolsForLaravel\Console\NatsQueueConsumer;
 use FrockDev\ToolsForLaravel\Console\PrepareProtoFiles;
-use FrockDev\ToolsForLaravel\Console\RegisterEndpoints;
 use FrockDev\ToolsForLaravel\Console\ResetNamespacesInComposerJson;
-use FrockDev\ToolsForLaravel\EventLIsteners\BeforeEndpointCalledListener;
-use FrockDev\ToolsForLaravel\EventLIsteners\RequestGotListener;
-use FrockDev\ToolsForLaravel\EventLIsteners\WorkerListenStartedHandler;
-use FrockDev\ToolsForLaravel\Events\BeforeEndpointCalled;
-use FrockDev\ToolsForLaravel\Events\RequestGot;
-use FrockDev\ToolsForLaravel\Events\WorkerListenStarted;
-use FrockDev\ToolsForLaravel\MetricsAbstractions\Dummy\DummyMetrics;
-use FrockDev\ToolsForLaravel\MetricsAbstractions\Dummy\DummyRPC;
+use FrockDev\ToolsForLaravel\EventLIsteners\BeforeRequestProcessedListener;
+use FrockDev\ToolsForLaravel\Events\BeforeRequestProcessedEvent;
+use FrockDev\ToolsForLaravel\InterceptorInterfaces\PostInterceptorInterface;
+use FrockDev\ToolsForLaravel\InterceptorInterfaces\PreInterceptorInterface;
 use FrockDev\ToolsForLaravel\NatsCustomization\CustomNatsClient;
 use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
@@ -32,27 +24,65 @@ use Illuminate\Support\ServiceProvider;
 use Jaeger\Config;
 use OpenTracing\NoopTracer;
 use OpenTracing\Tracer;
-use Spiral\Goridge\RPC\RPC;
-use Spiral\RoadRunner\Metrics\Metrics;
 use const Jaeger\SAMPLER_TYPE_CONST;
 
 class FrockServiceProvider extends ServiceProvider
 {
+
+    private function prepareEndpointsAndInterceptors(Collector $collector)
+    {
+        foreach (scandir(app_path() . '/Modules') as $module) {
+            if ($module === '.' || $module === '..' || !is_dir(app_path() . '/Modules/' . $module)) continue;
+            foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints') as $subService) {
+                if ($subService === '.' || $subService === '..' || !is_dir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService)) continue;
+
+                foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService) as $version) {
+                    if ($version === '.' || $version === '..' || !is_dir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version)) continue;
+
+                    foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version) as $endpoint) {
+                        if ($endpoint === '.' || $endpoint === '..' || !is_file(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version . '/' . $endpoint)) continue;
+
+                        $endpointClass = 'App\\Modules\\' . $module . '\\Endpoints\\' . $subService . '\\' . $version . '\\' . substr($endpoint, 0, -4);
+
+                        $endpointAttributes = $collector->getAnnotationsByClassName($endpointClass);
+                        $this->app->singleton($endpointClass, $endpointClass);
+                        $endpointInstance = $this->app->make($endpointClass);
+                        if (array_key_exists('methodAnnotations', $endpointAttributes)) {
+                            foreach ($endpointAttributes['methodAnnotations'] as $methodAttributes) {
+                                foreach ($methodAttributes as $attributeClassName => $attributeInfo) {
+                                    $attributeInstance = new $attributeClassName(...$attributeInfo->getArguments());
+                                    if ($attributeInstance instanceof PreInterceptorInterface) {
+                                        $endpointInstance->addPreInterceptor($attributeInstance);
+                                    } elseif ($attributeInstance instanceof PostInterceptorInterface) {
+                                        $endpointInstance->addPostInterceptor($attributeInstance);
+                                    } else {
+                                        unset($attributeInstance);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public function register()
     {
         $this->commands(CreateEndpointsFromProto::class);
         $this->commands(AddNamespacesToComposerJson::class);
         $this->commands(ResetNamespacesInComposerJson::class);
         $this->commands(PrepareProtoFiles::class);
-        $this->commands(LoadNatsEndpoints::class);
-        $this->commands(LoadHttpEndpoints::class);
-        $this->commands(NatsQueueConsumer::class);
-        $this->commands(HttpConsumer::class);
-        $this->commands(RegisterEndpoints::class);
         $this->commands(AddToArrayToGrpcObjects::class);
-        $this->commands(GenerateTestsForPublicMethodsOnModules::class);
         $this->commands(GenerateGrafanaMetrics::class);
+        $this->commands(CollectAttributesToCache::class);
+        $this->commands(HyperfNanoRun::class);
 
+        // own laravel attributes collector
+        $collector = new Collector($this->app);
+        $collector->collect(app_path());
+
+        $this->prepareEndpointsAndInterceptors($collector);
 
         $this->app->bind(GrpcNatsMessenger::class, function ($app) {
             $options = new Configuration([
@@ -98,31 +128,12 @@ class FrockServiceProvider extends ServiceProvider
                 return new NoopTracer();
             }
         });
-
-        $this->app->singleton(Metrics::class, function($app) {
-            if (config('frock.disableMetrics')===true) {
-                return new DummyMetrics(new DummyRPC());
-            } else {
-                return new Metrics(RPC::create('tcp://127.0.0.1:6001'));
-            }
-
-        });
-
     }
 
     public function boot()
     {
-
-        Event::listen(BeforeEndpointCalled::class,
-            [BeforeEndpointCalledListener::class, 'handle']
-        );
-
-        Event::listen(WorkerListenStarted::class,
-            [WorkerListenStartedHandler::class, 'handle']
-        );
-
-        Event::listen(RequestGot::class,
-            [RequestGotListener::class, 'handle']
+        Event::listen(BeforeRequestProcessedEvent::class,
+            [BeforeRequestProcessedListener::class, 'handle']
         );
 
         $this->publishes([

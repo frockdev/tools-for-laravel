@@ -4,6 +4,9 @@ namespace FrockDev\ToolsForLaravel\Exceptions;
 
 use Throwable;
 
+/**
+ * @deprecated
+ */
 class HttpHandledException extends \Exception
 {
     private string $traceId;

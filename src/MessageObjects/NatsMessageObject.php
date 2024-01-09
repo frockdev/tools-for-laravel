@@ -4,6 +4,9 @@ namespace FrockDev\ToolsForLaravel\MessageObjects;
 
 use Google\Protobuf\Internal\Message;
 
+/**
+ * @deprecated
+ */
 class NatsMessageObject
 {
     public string $subject;

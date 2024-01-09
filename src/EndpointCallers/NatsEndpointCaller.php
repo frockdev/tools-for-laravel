@@ -7,10 +7,14 @@ use FrockDev\ToolsForLaravel\MessageObjects\NatsMessageObject;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
 use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
 use Google\Protobuf\Internal\Message;
+use Hyperf\Coroutine\Coroutine;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Log;
 use OpenTracing\Tracer;
 
+/**
+ * @deprecated
+ */
 class NatsEndpointCaller
 {
     private Application $app;
@@ -24,10 +28,14 @@ class NatsEndpointCaller
 
     private function addInfoToLogContext(string $traceId, Message $message): void
     {
-        Log::shareContext([
-            'trace_id' => $traceId,
-            'input'=>$message->serializeToJsonString(),
-        ]);
+        if (Coroutine::inCoroutine()) {
+
+        } else {
+//            Log::shareContext([
+//                'trace_id' => $traceId,
+//                'input'=>$message->serializeToJsonString(),
+//            ]);
+        }
     }
 
     public function call(array $context, NatsMessageObject $messageObject): void
