@@ -17,14 +17,20 @@ class Collector
 
     public function collect(?string $path = null): void
     {
+        if (!file_exists(storage_path('collector'))) {
+            mkdir(storage_path('collector'));
+        }
+        if (!file_exists(storage_path('collector/.gitignore'))) {
+            file_put_contents(storage_path('collector/.gitignore'), "*\n!.gitignore\n");
+        }
         $path ??= app_path();
 
         $currentHash = $this->getHashOfAllMimeTypes($path);
 
         try {
-            $cachedHash = file_get_contents(storage_path('collector.annotationsHash'));
+            $cachedHash = file_get_contents(storage_path('collector/annotationsHash'));
         } catch (\Throwable $e) {
-            file_put_contents(storage_path('collector.annotationsHash'), '');
+            file_put_contents(storage_path('collector/annotationsHash'), '');
             $cachedHash = null;
         }
 
@@ -33,20 +39,20 @@ class Collector
             $classBasedThree = $this->createClassBasedThree($classes);
             $attributeBasedThree = $this->createAttributeBasedThree($classBasedThree);
             file_put_contents(
-              storage_path('collector.attributeBasedThree'),
+              storage_path('collector/attributeBasedThree'),
               "<?php\n\nreturn ".var_export($attributeBasedThree, true)."\n;"
             );
             file_put_contents(
-                storage_path('collector.classBasedThree'),
+                storage_path('collector/classBasedThree'),
                 "<?php\n\nreturn ".var_export($classBasedThree, true)."\n;"
             );
-            file_put_contents(storage_path('collector.annotationsHash'), $currentHash);
+            file_put_contents(storage_path('collector/annotationsHash'), $currentHash);
 
             $this->app->instance('attributeBasedThree', $attributeBasedThree);
             $this->app->instance('classBasedThree', $classBasedThree);
         } else {
-            $this->app->instance('attributeBasedThree', include storage_path('collector.attributeBasedThree'));
-            $this->app->instance('classBasedThree', include storage_path('collector.classBasedThree'));
+            $this->app->instance('attributeBasedThree', include storage_path('collector/attributeBasedThree'));
+            $this->app->instance('classBasedThree', include storage_path('collector/classBasedThree'));
         }
     }
 
