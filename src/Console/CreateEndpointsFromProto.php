@@ -60,7 +60,7 @@ class CreateEndpointsFromProto extends Command
     {
         $newAbstractClass->addProperty('preInterceptors')
             ->setType('array')
-            ->setPrivate()
+            ->setProtected()
             ->setValue([]);
         $addPreInterceptorMethod = $newAbstractClass->addMethod('addPreInterceptor');
         $addPreInterceptorMethod->addParameter('interceptor')
@@ -71,7 +71,7 @@ class CreateEndpointsFromProto extends Command
 
         $newAbstractClass->addProperty('postInterceptors')
             ->setType('array')
-            ->setPrivate()
+            ->setProtected()
             ->setValue([]);
         $addPostInterceptorMethod = $newAbstractClass->addMethod('addPostInterceptor');
         $addPostInterceptorMethod->addParameter('interceptor')
