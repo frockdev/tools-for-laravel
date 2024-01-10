@@ -129,15 +129,19 @@ class CreateEndpointsFromProto extends Command
         $invoke .= '}' . "\n";
         $invoke .= '$this->callCountMetric->inc([\''.$metricLabel.'\']);'."\n";
         $invoke .= '$timeStart = microtime(true);'."\n";
+        $invoke .= '$context = $this->getContext();' . "\n" ;
         $invoke .=  'foreach ($this->preInterceptors as $interceptor) {' . "\n" .
             '    /** @var \\' . PreInterceptorInterface::class . ' $interceptor */' . "\n" .
-            '      $interceptor->intercept($this->context, $dto);' . "\n" .
+            '      $interceptor->intercept($context, $dto);' . "\n" .
             '}' . "\n" .
+            '$this->setContext($context);' . "\n" .
             '$result = $this->run($dto);' . "\n" .
+            '$context = $this->getContext();' . "\n" .
             'foreach ($this->postInterceptors as $interceptor) {' . "\n" .
             '    /** @var \\' . PostInterceptorInterface::class . ' $interceptor */' . "\n" .
-            '      $interceptor->intercept($this->context, $result, $result);' . "\n" .
+            '      $interceptor->intercept($context, $result, $result);' . "\n" .
             '}' . "\n" .
+            '$this->setContext($context);' . "\n" .
             '$this->callDurationHistogramMetric->observe(microtime(true) - $timeStart, [\''.$metricLabel.'\']);'."\n".
             'return $result;';
         return $invoke;

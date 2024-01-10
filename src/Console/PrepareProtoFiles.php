@@ -9,6 +9,8 @@ class PrepareProtoFiles extends Command
 
     protected $signature = 'frock:prepare-proto-files {name}';
 
+    private array $packages = [];
+
     public function handle() {
         $composerJson = json_decode(file_get_contents(app_path().'/../composer.json'), true);
         $projectOwner = $this->getProjectOwnerByFullName($composerJson['name']);
@@ -43,6 +45,12 @@ class PrepareProtoFiles extends Command
         if (substr_count($packageName, '.') !== 2) {
             throw new \Exception('Package name '.$packageName.' must contain 2 dots. Format: service.subservice.version Example: "banking.balance.v1"');
         }
+
+        if (array_key_exists($packageName, $this->packages)) {
+            throw new \Exception('Package name '.$packageName.' already exists. Do not duppppppplicate package names between proto files');
+        }
+
+        $this->packages[$packageName] = true;
 
 //        // this is new
 //        preg_match('%\s*//\s*messagesPrefix\s*=\s*(.*);%', $fileContent, $matches);

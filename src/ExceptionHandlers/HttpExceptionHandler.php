@@ -27,7 +27,7 @@ class HttpExceptionHandler extends ExceptionHandler
         $errorData = $this->commonErrorHandler->handleError($throwable);
         if ($errorData=== null) {
             Log::error($throwable->getMessage(), ['message'=>$throwable->getMessage(), 'trace'=>$throwable->getTraceAsString()]);
-            if (env('SHOW_UNHANDLED_ERROR_IN_PROD', false)) {
+            if (config('app.env')!=='local' || env('SHOW_UNHANDLED_ERROR', false)) {
                 $message500 = $throwable->getMessage();
             } else {
                 $message500 = 'Internal Error';
@@ -46,7 +46,7 @@ class HttpExceptionHandler extends ExceptionHandler
                     json_encode([
                         'error' => true,
                         'errorCode'=>$errorData->errorCode,
-                        'errorMessage' => json_encode($errorData->errorData, JSON_UNESCAPED_SLASHES)
+                        'errorMessage' => $errorData->errorData['errorMessage'],
                     ], JSON_UNESCAPED_SLASHES)
                 ));
         }
