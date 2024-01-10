@@ -38,7 +38,11 @@ class PrepareProtoFiles extends Command
         if (!isset($matches[1])) {
             throw new \Exception('Package name not found in proto file. Don\'t forget write in file "package <package_name>;"'.$fileContent);
         }
+
         $packageName = $matches[1];
+        if (substr_count($packageName, '.') !== 2) {
+            throw new \Exception('Package name '.$packageName.' must contain 2 dots. Format: service.subservice.version Example: "banking.balance.v1"');
+        }
 
 //        // this is new
 //        preg_match('%\s*//\s*messagesPrefix\s*=\s*(.*);%', $fileContent, $matches);
