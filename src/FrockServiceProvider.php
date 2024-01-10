@@ -76,7 +76,6 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(AddToArrayToGrpcObjects::class);
         $this->commands(GenerateGrafanaMetrics::class);
         $this->commands(CollectAttributesToCache::class);
-        $this->commands(HyperfNanoRun::class);
 
         // own laravel attributes collector
         $collector = new Collector($this->app);

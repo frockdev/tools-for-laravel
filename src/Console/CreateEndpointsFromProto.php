@@ -27,13 +27,6 @@ class CreateEndpointsFromProto extends Command
         $constructor->setBody(
             '$this->container = $container;'
         );
-//        $constructor->setBody(
-//            '$this->container = $container;'."\n"
-//            .'$this->callCountMetric = \\FrockDev\\ToolsForLaravel\\BaseMetrics\\EndpointCallsCountMetric::declare();'
-//        );
-//        $innerGrpcController->addProperty('callCountMetric')
-//            ->setType(\FrockDev\ToolsForLaravel\BaseMetrics\EndpointCallsCountMetric::class)
-//            ->setProtected();
         $innerGrpcController->addProperty('container')
             ->setType(Container::class)
             ->setPrivate();
@@ -54,19 +47,9 @@ class CreateEndpointsFromProto extends Command
         $innerControllerMethod->setBody(
             '/** @var \\App\\Modules\\' . $transportFullName . ' $transportController */' . "\n" .
             '$transportController = $this->container->get(\\App\\Modules\\' . $transportFullName . '::class);' . "\n" .
-            '$transportController->context = $ctx->getValues();' . "\n" .
+            '$transportController->setContext($ctx->getValues());' . "\n" .
             'return $transportController($in);'
         );
-//        $innerControllerMethod->setBody(
-//            '$this->callCountMetric->inc([\''
-//            .str_replace('InnerController', '', $innerGrpcController->getName())
-//            .'::'
-//            .str_replace('InnerController', '', $method->getName()).'\']);'."\n"
-//            .'/** @var \\App\\Modules\\' . $transportFullName . ' $transportController */' . "\n" .
-//            '$transportController = $this->container->get(\\App\\Modules\\' . $transportFullName . '::class);' . "\n" .
-//            '$transportController->context = $ctx->getValues();' . "\n" .
-//            'return $transportController($in);'
-//        );
     }
 
     /**
@@ -252,6 +235,7 @@ class CreateEndpointsFromProto extends Command
                     }
                     $this->clear($serviceDir, $subServiceDir, $versionDir);
                     foreach ($interfacePaths as $interfacePath) {
+                        $this->fixInterface($interfacePath);
                         $fileContent = file_get_contents($interfacePath);
                         /** @var InterfaceType $grpcInterface */
                         $grpcInterface = InterfaceType::fromCode($fileContent);
@@ -286,11 +270,19 @@ class CreateEndpointsFromProto extends Command
                                 ->setPrivate();
                             $newAbstractClass->addMethod('getContext')
                                 ->setReturnType('array')
-                                ->setBody('return Context::get("endpoint_context_".get_called_class());')
+                                ->setBody('if (Coroutine::id() > 0) { '
+                                    ."\t\t"."\n".'return Context::get("endpoint_context_".get_called_class());'."\n"
+                                    ."\t".'} else {'
+                                    ."\t\t"."\n".'return $this->context;'."\n"
+                                    ."\t".'}')
                                 ->setPublic();
                             $newAbstractClass->addMethod('setContext')
                                 ->setReturnType('void')
-                                ->setBody('Context::set("endpoint_context".get_called_class(), $context);')
+                                ->setBody('if (Coroutine::id() > 0) { '
+                                    ."\t\t"."\n".'Context::set("endpoint_context_".get_called_class(), $context);'."\n"
+                                    ."\t".'} else {'
+                                    ."\t\t"."\n".'$this->context = $context;'."\n"
+                                    ."\t".'}')
                                 ->setPublic()
                                 ->addParameter('context')
                                 ->setType('array');
@@ -305,6 +297,7 @@ class CreateEndpointsFromProto extends Command
                                 ->setValue(null)
                                 ->setProtected();
                             $newAbstractEndpointNamespace->addUse(\FrockDev\ToolsForLaravel\BaseMetrics\EndpointCallsCountMetric::class);
+                            $newAbstractEndpointNamespace->addUse(\Hyperf\Coroutine\Coroutine::class);
                             $this->createInterceptorsArrays($newAbstractClass);
 
                             $newAbstractEndpointNamespace->add($newAbstractClass);
@@ -520,5 +513,17 @@ class CreateEndpointsFromProto extends Command
         $serializableMethod->setBody($serializableBody);
         $this->putNamespaceToFile($namespace, $fileName);
 
+    }
+
+    private function fixInterface(string $interfacePath)
+    {
+        $content = file_get_contents($interfacePath);
+        $content = str_replace('use Spiral\\RoadRunner\\GRPC;', '', $content);
+        $content = str_replace(' extends GRPC\\ServiceInterface', '', $content);
+        $content = str_replace('GRPC\\ContextInterface $ctx', 'array $ctx', $content);
+        $content = str_replace('@throws GRPC\Exception\InvokeException', '', $content);
+
+
+        file_put_contents($interfacePath, $content);
     }
 }

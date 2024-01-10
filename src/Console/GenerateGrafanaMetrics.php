@@ -8,14 +8,15 @@ use Nette\PhpGenerator\ClassType;
 
 class GenerateGrafanaMetrics extends Command
 {
-    protected $signature = 'frock:generate-grafana-metrics';
+    protected $signature = 'frock:generate-grafana-metrics {appName?}';
     public function handle() {
+        $appName = $this->argument('appName') ?? config('app.name');
         $boards = [];
         $metrics = [];
         $files = $this->getDirContents(app_path());
         foreach ($files as $filePath) {
             if (!is_file($filePath)) continue;
-            foreach ($this->getMetricsDataFromClass($filePath) as $metricName=>$metricInfo) {
+            foreach ($this->getMetricsDataFromClass($filePath, $appName) as $metricName=>$metricInfo) {
                 $metrics[$metricName] = $metricInfo;
                 $this->info('Metric '.$metricName.' from '.$metricInfo['from'].' has been found');
                 $renderer = app()->make($metricInfo['renderer'], ['metric'=>call_user_func($metricInfo['fullClassName'].'::getInstanceForRender')]);
@@ -189,7 +190,7 @@ class GenerateGrafanaMetrics extends Command
         ];
     }
 
-    private function getMetricsDataFromClass($filePath) {
+    private function getMetricsDataFromClass(string $filePath, string $appName) {
         $result = [];
         $fileContents = file_get_contents($filePath);
         $regex = "/([A-Z][A-Za-z0-9_]*)Metric::declare\(\)\s*;/m";
@@ -208,7 +209,7 @@ class GenerateGrafanaMetrics extends Command
             $description = $this->getMetricDescriptionFromClassType($classType);
             $labels = $this->getMetricLabelsFromClassType($classType);
             $rowName = $this->getRowNameFromClassType($classType);
-            $boardName = $this->getBoardNameFromClassType($classType);
+            $boardName = $this->getBoardNameFromClassType($classType, $appName);
             $buckets = $this->getBucketsFromClassType($classType);
             $renderer = $this->getRendererFromClassType($classType);
             $result[$metricName.'_'.$className] = [
@@ -323,12 +324,23 @@ class GenerateGrafanaMetrics extends Command
         return $classType->getConstant('ROW_NAME')->getValue();
     }
 
-    private function getBoardNameFromClassType(ClassType $classType)
+    private function getBoardNameFromClassType(ClassType $classType, string $appName)
     {
         if (!$classType->hasConstant('BOARD_NAME') || $classType->getConstant('BOARD_NAME')->getValue()==='') {
             throw new \Exception('Check Metrics. There is no BOARD_NAME constant in '.$classType->getName());
         }
-        return 'GeneratedBoards/'.config('app.name').'/'.$classType->getConstant('BOARD_NAME')->getValue();
+        $appName = $this->fixNameFromAnyToCamelCase($appName);
+        return 'GeneratedBoards/'.$appName.'/'.$classType->getConstant('BOARD_NAME')->getValue();
+    }
+
+    private function fixNameFromAnyToCamelCase(string $string): string
+    {
+        $string = preg_replace("/[^\w0-9]+/", '-', $string);
+        $exploded = explode('-', $string);
+        foreach ($exploded as &$word) {
+            $word = ucfirst($word);
+        }
+        return implode('', $exploded);
     }
 
     private function getBucketsFromClassType(ClassType $classType)
