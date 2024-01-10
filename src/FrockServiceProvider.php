@@ -46,6 +46,7 @@ class FrockServiceProvider extends ServiceProvider
 
                         $endpointAttributes = $collector->getAnnotationsByClassName($endpointClass);
                         $this->app->singleton($endpointClass, $endpointClass);
+                        $this->app->singleton('\\'.$endpointClass, $endpointClass);
                         $endpointInstance = $this->app->make($endpointClass);
                         if (array_key_exists('methodAnnotations', $endpointAttributes)) {
                             foreach ($endpointAttributes['methodAnnotations'] as $methodAttributes) {
@@ -61,6 +62,8 @@ class FrockServiceProvider extends ServiceProvider
                                 }
                             }
                         }
+                        $this->app->instance($endpointClass, $endpointInstance);
+                        $this->app->instance('\\'.$endpointClass, $endpointInstance);
                     }
                 }
             }
