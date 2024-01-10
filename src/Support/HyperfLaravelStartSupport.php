@@ -21,6 +21,13 @@ use function Hyperf\Support\env;
 class HyperfLaravelStartSupport
 {
 
+    private AppModeResolver $appModeResolver;
+
+    public function __construct(AppModeResolver $appModeResolver)
+    {
+        $this->appModeResolver = $appModeResolver;
+    }
+
     public function initializeLaravel(string $basePath): \Illuminate\Foundation\Application {
         /** @var \Illuminate\Foundation\Application $app */
         $app = require_once $basePath.'/bootstrap/app.php';
@@ -102,13 +109,14 @@ class HyperfLaravelStartSupport
     ];
 
     public function enableHttpIfNeeded(array $serverConfig): array {
-
         $finalServerConfig = $serverConfig;
         /** @var Collector $collector */
         $collector = app()->make(Collector::class);
         $needHttp =
             count($collector->getClassesByAnnotation(Http::class))>0
-            && (env('APP_MODE')=='http' || env('APP_ENV')=='local');
+            && (
+                $this->appModeResolver->isHttpAllowedToRun()
+            );
 
         //////http
         $foundConfigIndex = false;
@@ -203,7 +211,9 @@ class HyperfLaravelStartSupport
         $collector = app()->make(Collector::class);
         $needNats = ((count($collector->getClassesByAnnotation(Nats::class))>0)
             || (count($collector->getClassesByAnnotation(NatsJetstream::class))>0))
-            && (env('APP_MODE')=='nats' || env('APP_ENV')=='local');
+            && (
+                $this->appModeResolver->isNatsAllowedToRun()
+            );
         if ($needNats) {
             $natsConfig = $this->getNatsTemplate();
             $app->config(['natsJetstream' => [
@@ -252,7 +262,9 @@ class HyperfLaravelStartSupport
         /** @var Collector $collector */
         $collector = app()->make(Collector::class);
         $needGrpc = count($collector->getClassesByAnnotation(Grpc::class))>0
-            && (env('APP_MODE')=='grpc' || env('APP_ENV')=='local');
+            && (
+                $this->appModeResolver->isGrpcAllowedToRun()
+            );
 
         $finalServerConfig = $serverConfig;
         ////grpc
