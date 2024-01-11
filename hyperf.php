@@ -10,9 +10,9 @@ use Swoole\Constant;
 use function Hyperf\Support\env;
 
 require_once __DIR__ . '/vendor/autoload.php';
-
+$appModeResolver = new \FrockDev\ToolsForLaravel\Support\AppModeResolver();
 $startSupport = new \FrockDev\ToolsForLaravel\Support\HyperfLaravelStartSupport(
-    new \FrockDev\ToolsForLaravel\Support\AppModeResolver()
+    $appModeResolver
 );
 $laravelApp = $startSupport->initializeLaravel(__DIR__);
 
