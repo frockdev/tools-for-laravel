@@ -4,20 +4,20 @@ namespace FrockDev\ToolsForLaravel\Routes;
 
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\AnnotationsObjectModels\Annotation;
-use FrockDev\ToolsForLaravel\Annotations\Grpc;
 use FrockDev\ToolsForLaravel\Annotations\Http;
-use Hyperf\Di\Annotation\AnnotationCollector;
+use FrockDev\ToolsForLaravel\FeatureFlags\EndpointFeatureFlagManager;
 use Hyperf\HttpServer\Router\DispatcherFactory;
 use Hyperf\HttpServer\Router\Router;
-use ReflectionClass;
 
 class HttpProtobufDispatcherFactory extends DispatcherFactory
 {
     private Collector $customCollector;
+    private mixed $endpointFeatureFlagManager;
 
     public function __construct()
     {
         $this->customCollector = app()->make(Collector::class);
+        $this->endpointFeatureFlagManager = app()->make(EndpointFeatureFlagManager::class);
         parent::__construct();
     }
     public function initConfigRoute()
@@ -35,6 +35,9 @@ class HttpProtobufDispatcherFactory extends DispatcherFactory
                 /** @var Annotation $annotation */
                 foreach ($annotations['classAnnotations'] as $annotationClassName => $annotation) {
                     if ($annotationClassName == Http::class) {
+                        if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($this->customCollector, $class)) {
+                            continue 2;
+                        }
                         $route = $annotation->getArguments()[1];
                         if (strtolower($annotation->getArguments()[0])=='get') {
                             Router::get('/'.ltrim($route,'/'), $class.'@__invoke');

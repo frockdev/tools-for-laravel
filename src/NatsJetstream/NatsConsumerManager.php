@@ -6,6 +6,7 @@ use FrockDev\ToolsForLaravel\Annotations\Nats;
 use FrockDev\ToolsForLaravel\Annotations\NatsJetstream;
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\AnnotationsObjectModels\Annotation;
+use FrockDev\ToolsForLaravel\FeatureFlags\EndpointFeatureFlagManager;
 use FrockDev\ToolsForLaravel\NatsJetstream\Processes\NatsConsumerProcess;
 use Hyperf\Process\AbstractProcess;
 use Hyperf\Process\ProcessManager;
@@ -13,7 +14,7 @@ use Psr\Container\ContainerInterface;
 
 class NatsConsumerManager
 {
-    public function __construct(private ContainerInterface $container)
+    public function __construct(private ContainerInterface $container, private EndpointFeatureFlagManager $endpointFeatureFlagManager)
     {
     }
 
@@ -24,11 +25,17 @@ class NatsConsumerManager
         $classes = $collector->getClassesByAnnotation(Nats::class);
 
         foreach ($classes as $className => $classAttributesInfo) {
+            if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($collector, $className)) {
+                continue;
+            }
             /**
              * @var string $attributeClassName
              * @var Annotation $attributeInfo
              */
             foreach ($classAttributesInfo['classAnnotations'] as $attributeClassName => $attributeInfo) {
+                if ($attributeClassName !== Nats::class) {
+                    continue;
+                }
                 /** @var Nats $attributeExemplar */
                 $attributeExemplar = new $attributeClassName(...$attributeInfo->getArguments());
                 $nums = $attributeExemplar->nums;
@@ -49,11 +56,17 @@ class NatsConsumerManager
         $classes = $collector->getClassesByAnnotation(NatsJetstream::class);
 
         foreach ($classes as $className => $classAttributesInfo) {
+            if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($collector, $className)) {
+                continue;
+            }
             /**
              * @var string $attributeClassName
              * @var Annotation $attributeInfo
              */
             foreach ($classAttributesInfo['classAnnotations'] as $attributeClassName => $attributeInfo) {
+                if ($attributeClassName !== NatsJetstream::class) {
+                    continue;
+                }
                 /** @var NatsJetstream $attributeExemplar */
                 $attributeExemplar = new $attributeClassName(...$attributeInfo->getArguments());
                 $nums = $attributeExemplar->nums;
