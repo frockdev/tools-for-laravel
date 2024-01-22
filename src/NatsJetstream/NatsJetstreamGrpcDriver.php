@@ -11,7 +11,7 @@ use Hyperf\Contract\ConnectionInterface;
 use Hyperf\Di\Container;
 use Hyperf\Engine\Channel;
 use Hyperf\Pool\SimplePool\Pool;
-use Psr\Container\ContainerInterface;
+use Illuminate\Support\Facades\Log;
 use Hyperf\Pool\SimplePool\PoolFactory;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -130,9 +130,18 @@ class NatsJetstreamGrpcDriver
         }
     }
 
+    private function logMessageFromSubscribe(Payload $payload) {
+        $headers = '';
+        foreach ($payload->headers as $key=>$value) {
+            $headers .= $key . ': ' . $value . ", ";
+        }
+        Log::debug('NatsJetstreamGrpcDriver: received message at ' . $payload->subject . ', headers: ('. $headers . '),  body:' . $payload->body);
+    }
+
     public function subscribe(string $subject, string $queue, Closure $callback, string $deserializeTo): void
     {
         $function = function (Payload $payload) use ($callback, $deserializeTo) {
+            $this->logMessageFromSubscribe($payload);
             /** @var Message $result */
             $result = new $deserializeTo();
             $result->mergeFromJsonString($payload->body);
@@ -156,9 +165,18 @@ class NatsJetstreamGrpcDriver
         }
     }
 
+    private function logMessageFromSubscribeToStream(Payload $payload, string $streamName) {
+        $headers = '';
+        foreach ($payload->headers as $key=>$value) {
+            $headers .= $key . ': ' . $value . ", ";
+        }
+        Log::debug('NatsJetstreamGrpcDriver: received message at ' . $payload->subject . ' and stream: '.$streamName.', headers: ('. $headers . '),  body:' . $payload->body);
+    }
+
     public function subscribeToStream(string $subject, string $streamName, Closure $callback, string $deserializeTo, ?float $period): void
     {
         $function = function (Payload $payload) use ($callback, $deserializeTo, $subject, $streamName) {
+            $this->logMessageFromSubscribeToStream($payload, $streamName);
             try {
                 /** @var Message $result */
                 $result = new $deserializeTo();
