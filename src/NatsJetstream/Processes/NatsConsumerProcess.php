@@ -164,5 +164,8 @@ class NatsConsumerProcess extends AbstractProcess
                     }
                 }
             }
+            while (true) {
+                sleep(1);
+            }
     }
 }

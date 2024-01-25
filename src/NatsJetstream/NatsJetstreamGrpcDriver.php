@@ -4,7 +4,6 @@ use Basis\Nats\Client;
 use Basis\Nats\Configuration;
 use Basis\Nats\Message\Payload;
 use Closure;
-use FrockDev\ToolsForLaravel\HyperfProxies\StdOutLoggerProxy;
 use Google\Protobuf\Internal\Message;
 use Hyperf\Contract\ConfigInterface;
 use Hyperf\Contract\ConnectionInterface;
@@ -13,6 +12,7 @@ use Hyperf\Engine\Channel;
 use Hyperf\Pool\SimplePool\Pool;
 use Illuminate\Support\Facades\Log;
 use Hyperf\Pool\SimplePool\PoolFactory;
+use Illuminate\Support\Str;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -173,7 +173,7 @@ class NatsJetstreamGrpcDriver
         Log::debug('NatsJetstreamGrpcDriver: received message at ' . $payload->subject . ' and stream: '.$streamName.', headers: ('. $headers . '),  body:' . $payload->body);
     }
 
-    public function subscribeToStream(string $subject, string $streamName, Closure $callback, string $deserializeTo, ?float $period): void
+    public function subscribeToStream(string $subject, string $streamName, Closure $callback, string $deserializeTo, ?float $period = null): void
     {
         $function = function (Payload $payload) use ($callback, $deserializeTo, $subject, $streamName) {
             $this->logMessageFromSubscribeToStream($payload, $streamName);
@@ -195,13 +195,15 @@ class NatsJetstreamGrpcDriver
             /** @var Client $client */
             $client = $connection->getConnection();
             $jetStream = $client->getApi()->getStream($streamName);
-            $consumer = $jetStream->getConsumer($streamName . '-consumer-' . config('app.name') . '-' . config('app.env') . '-' . env('NATS_SPECIAL_POSTFIX', 'default'));
+            $consumerName = $streamName . '-'.Str::random().'-' . config('app.name') . '-' . config('app.env') . '-' . env('NATS_SPECIAL_POSTFIX', 'default');
+            $consumer = $jetStream->getConsumer($consumerName);
             $consumer->getConfiguration()->setSubjectFilter($subject);
             if (!is_null($period)) {
-                $consumer->interrupt();
+                $consumer->setIterations(1);
             }
             $consumer->handle($function);
         } finally {
+            $consumer->delete();
             isset($connection) && $connection->release();
         }
     }

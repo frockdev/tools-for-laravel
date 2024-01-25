@@ -21,11 +21,11 @@
         "hyperf/pool": "^3.1",
         "hyperf/process": "^3.1",
         "hyperf/redis": "^3.1",
-        "promphp/prometheus_client_php": "^2.8"
-    },
-    "require-dev": {
+        "promphp/prometheus_client_php": "^2.8",
         "barryvdh/laravel-ide-helper": "v2.13.0",
         "swoole/ide-helper": "~5.0.0"
+    },
+    "require-dev": {
     },
     "extra": {
         "laravel": {
