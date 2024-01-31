@@ -26,7 +26,7 @@ class NatsDriver
             'timeout'=>(float)config('nats.timeout', (float)env('NATS_TIMEOUT', 1)),
             'reconnect'=>(bool)config('nats.reconnect', env('NATS_RECONNECT', true)),
         ]);
-        $this->client = new SwowNatsClient($config, Log::getLogger());
+        $this->client = new SwowNatsClient($config);
     }
 
     public function publish(string $subject, string|Message $payload, $replyTo = null): void

@@ -18,7 +18,7 @@ use Basis\Nats\Message\Subscribe;
 use Basis\Nats\Message\Unsubscribe;
 use Closure;
 use Exception;
-use Psr\Log\LoggerInterface;
+use Illuminate\Support\Facades\Log;
 use Swow\SocketException;
 use Throwable;
 
@@ -31,19 +31,16 @@ class SwowNatsClient
     private readonly ?Authenticator $authenticator;
 
     private ?\Swow\Socket $socket = null;
-    private $context;
     private array $handlers = [];
     private float $ping = 0;
     private float $pong = 0;
-    private ?float $lastDataReadFailureAt = null;
     private string $name = '';
     private array $subscriptions = [];
 
     private bool $skipInvalidMessages = false;
 
     public function __construct(
-        public readonly Configuration $configuration = new Configuration(),
-        public ?LoggerInterface $logger = null,
+        public readonly Configuration $configuration = new Configuration()
     ) {
         $this->api = new SwowNatsApi($this);
 
@@ -79,15 +76,14 @@ class SwowNatsClient
     public function connect(): self
     {
         if ($this->socket) {
-            $this->logger->debug('already connected');
+            Log::debug('already connected');
             return $this;
         }
 
         $config = $this->configuration;
 
         $dsn = "$config->host";
-//        $flags = STREAM_CLIENT_CONNECT;
-//        $this->context = stream_context_create();
+
         $this->socket = new \Swow\Socket(\Swow\Socket::TYPE_TCP);
         try {
             $this->socket->connect($dsn, $config->port, 10);
@@ -95,15 +91,6 @@ class SwowNatsClient
             throw new \Exception('We have problem with connection, consuming is stopping', 633, $e);
         }
 
-//        $this->socket = @stream_socket_client($dsn, $errorCode, $errorMessage, $config->timeout, $flags, $this->context);
-
-//        if ($errorCode || !$this->socket) {
-//            throw new Exception($errorMessage ?: "Connection error", $errorCode);
-//        }
-
-//        $this->setTimeout($config->timeout);
-
-        // Process server info
         $this->process($config->timeout);
 
         $this->connect = new Connect($config->getOptions());
@@ -183,7 +170,7 @@ class SwowNatsClient
         });
 
         $this->publish($name, $payload, $replyTo);
-//        $this->process($this->configuration->timeout);
+
         $this->process();
 
         return $this;
@@ -218,29 +205,11 @@ class SwowNatsClient
         return $this;
     }
 
-    public function setLogger(?LoggerInterface $logger): self
-    {
-        $this->logger = $logger;
-        return $this;
-    }
-
-//    public function setTimeout(float $value): self
-//    {
-//        $this->connect();
-//        $seconds = (int) floor($value);
-//        $milliseconds = (int) (1000 * ($value - $seconds));
-//
-//        stream_set_timeout($this->socket, $seconds, $milliseconds);
-//
-//        return $this;
-//    }
-
     /**
      * @throws Throwable
      */
     public function process(null|int|float $timeout = 0)
     {
-        $this->lastDataReadFailureAt = null;
         $max = microtime(true) + $timeout;
         $ping = time() + $this->configuration->pingInterval;
 
@@ -277,7 +246,7 @@ class SwowNatsClient
                     if ($now >= $max) {
                         return null;
                     }
-                    $this->logger?->debug('sleep', compact('max', 'now'));
+                    Log::debug('sleep', compact('max', 'now'));
                     $this->sleep();
                 } catch (Throwable $e) {
                     $this->processSocketException($e);
@@ -286,7 +255,7 @@ class SwowNatsClient
 
             switch (trim($line)) {
                 case 'PING':
-                    $this->logger?->debug('receive ' . $line);
+                    Log::debug('receive ' . $line);
                     $this->send(new Pong([]));
                     $now = microtime(true);
                     if ($now >= $max) {
@@ -295,24 +264,24 @@ class SwowNatsClient
                     return $this->process($max - $now);
 
                 case 'PONG':
-                    $this->logger?->debug('receive ' . $line);
+                    Log::debug('receive ' . $line);
                     return $this->pong = microtime(true);
 
                 case '+OK':
-                    $this->logger?->debug('receive ' . $line);
+                    Log::debug('receive ' . $line);
                     return;
             }
 
             try {
                 $message = Factory::create(trim($line));
             } catch (Throwable $exception) {
-                $this->logger?->debug($line);
+                Log::debug($line);
                 throw $exception;
             }
 
             switch (get_class($message)) {
                 case Info::class:
-                    $this->logger?->debug('receive ' . $line);
+                    Log::debug('receive ' . $line);
                     $this->handleInfoMessage($message);
                     return $this->info = $message;
 
@@ -332,13 +301,13 @@ class SwowNatsClient
                                 continue;
                             }
                             if (strlen($payloadLine) != $message->length) {
-                                $this->logger?->debug('got ' . strlen($payloadLine) . '/' . $message->length . ': ' . $payloadLine);
+                                Log::debug('got ' . strlen($payloadLine) . '/' . $message->length . ': ' . $payloadLine);
                             }
                             $payload .= $payloadLine;
                         }
                     }
                     $message->parse($payload);
-                    $this->logger?->debug('receive ' . $line . $payload);
+                    Log::debug('receive ' . $line . $payload);
                     if (!array_key_exists($message->sid, $this->handlers)) {
                         if ($this->skipInvalidMessages) {
                             return;
@@ -443,7 +412,7 @@ class SwowNatsClient
     private function processSocketException(Throwable $e): self
     {
         if (!$this->configuration->reconnect) {
-            $this->logger?->error($e->getMessage());
+            Log::error($e->getMessage());
             throw $e;
         }
 
@@ -477,7 +446,7 @@ class SwowNatsClient
     {
         $this->connect();
         $line = $message->render() . "\r\n";
-        $this->logger?->debug('send ' . $line);
+        Log::debug('send ' . $line);
 
         try {
             $this->socket->send($line);

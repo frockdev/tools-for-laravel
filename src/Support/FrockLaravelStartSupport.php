@@ -59,6 +59,7 @@ class FrockLaravelStartSupport
 
         config(['logging.channels.custom'=> [
             'driver' => 'custom',
+            'level'=>env('LOG_LEVEL', 'error'),
             'via' => \FrockDev\ToolsForLaravel\Swow\Logging\CustomLogger::class,
         ]]);
         config(['logging.default'=>'custom']);
