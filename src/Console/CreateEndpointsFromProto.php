@@ -4,6 +4,7 @@ namespace FrockDev\ToolsForLaravel\Console;
 
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PostInterceptorInterface;
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PreInterceptorInterface;
+use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Container\Container;
 use Nette\PhpGenerator\ClassType;
@@ -305,19 +306,11 @@ class CreateEndpointsFromProto extends Command
                                 ->setPrivate();
                             $newAbstractClass->addMethod('getContext')
                                 ->setReturnType('array')
-                                ->setBody('if (Coroutine::id() > 0) { '
-                                    ."\t\t"."\n".'return Context::get("endpoint_context_".get_called_class());'."\n"
-                                    ."\t".'} else {'
-                                    ."\t\t"."\n".'return $this->context;'."\n"
-                                    ."\t".'}')
+                                ->setBody('return ContextStorage::get("endpoint_context_".get_called_class());')
                                 ->setPublic();
                             $newAbstractClass->addMethod('setContext')
                                 ->setReturnType('void')
-                                ->setBody('if (Coroutine::id() > 0) { '
-                                    ."\t\t"."\n".'Context::set("endpoint_context_".get_called_class(), $context);'."\n"
-                                    ."\t".'} else {'
-                                    ."\t\t"."\n".'$this->context = $context;'."\n"
-                                    ."\t".'}')
+                                ->setBody('ContextStorage::set("endpoint_context_".get_called_class(), $context);')
                                 ->setPublic()
                                 ->addParameter('context')
                                 ->setType('array');
@@ -332,7 +325,7 @@ class CreateEndpointsFromProto extends Command
                                 ->setValue(null)
                                 ->setProtected();
                             $newAbstractEndpointNamespace->addUse(\FrockDev\ToolsForLaravel\BaseMetrics\EndpointCallsCountMetric::class);
-                            $newAbstractEndpointNamespace->addUse(\Hyperf\Coroutine\Coroutine::class);
+                            $newAbstractEndpointNamespace->addUse(ContextStorage::class);
                             $this->createInterceptorsArrays($newAbstractClass);
 
                             $newAbstractEndpointNamespace->add($newAbstractClass);

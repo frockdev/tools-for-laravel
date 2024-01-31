@@ -1,0 +1,74 @@
+<?php
+
+namespace FrockDev\ToolsForLaravel\Swow\Processes;
+
+use Basis\Nats\Message\Payload;
+use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
+use FrockDev\ToolsForLaravel\ExceptionHandlers\Data\ErrorData;
+use FrockDev\ToolsForLaravel\NatsJetstream\NatsJetstreamGrpcDriver;
+use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use FrockDev\ToolsForLaravel\Swow\NatsDriver;
+use Google\Protobuf\Internal\Message;
+use Illuminate\Support\Facades\Log;
+use Swow\Coroutine;
+
+class NatsQueueConsumerProcess extends AbstractProcess
+{
+    private object $endpoint;
+    private string $subject;
+    private string $queueName;
+    private CommonErrorHandler $errorHandler;
+    private NatsDriver $driver;
+
+    public function __construct(
+        object $endpoint,
+        string $subject,
+        string $queueName,
+    )
+    {
+        $this->endpoint = $endpoint;
+        $this->subject = $subject;
+        $this->queueName = $queueName;
+        $this->driver = new NatsDriver(); //todo check working with singleton, but maybe change to separated connections
+        $this->errorHandler = new CommonErrorHandler();
+    }
+
+    protected function run(): void
+    {
+        $this->driver->subscribe(
+            $this->subject,
+            $this->queueName,
+            function (Message $data, ?Payload $payload = null) {
+                $resultChannel = new \Swow\Channel(1);
+                $traceId = ContextStorage::get('X-Trace-Id');
+                Coroutine::run(function (Message $data, ?Payload $payload = null) use ($resultChannel, $traceId) {
+                    try {
+                        ContextStorage::set('X-Trace-Id', $traceId);
+                        if (!is_null($payload)) {
+                            $this->endpoint->setContext($payload->headers);
+                        } else {
+                            $this->endpoint->setContext([]);
+                        }
+                        /** @var Message $response */
+                        $response = $this->endpoint->__invoke($data);
+                        $result = $response->serializeToJsonString();
+                    } catch (\Throwable $throwable) {
+                        /** @var ErrorData $errorData */
+                        $errorData = $this->errorHandler->handleError($throwable);
+                        Log::error($throwable->getMessage(), [
+                            'exception' => $throwable,
+                        ]);
+                        $result = json_encode($errorData->errorData);
+                    } finally {
+                        $resultChannel->push($result);
+                        ContextStorage::clearStorage();
+                    }
+                }, $data, $payload);
+                $result = $resultChannel->pop(); //todo i think we need add timeout here
+                unset ($resultChannel);
+                return $result;
+            },
+            $this->endpoint::GRPC_INPUT_TYPE,
+        );
+    }
+}

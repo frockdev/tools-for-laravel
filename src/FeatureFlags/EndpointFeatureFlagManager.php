@@ -9,8 +9,16 @@ use Illuminate\Support\Facades\Log;
 
 class EndpointFeatureFlagManager
 {
-    public function checkIfEndpointEnabled(Collector $collector, string $className) {
-        $annotationsByClass = $collector->getAnnotationsByClassName(ltrim($className, '\\'));
+
+    private Collector $collector;
+
+    public function __construct(Collector $collector)
+    {
+        $this->collector = $collector;
+    }
+
+    public function checkIfEndpointEnabled(string $className) {
+        $annotationsByClass = $this->collector->getAnnotationsByClassName(ltrim($className, '\\'));
         /**
          * @var Annotation $annotationInfo
          */

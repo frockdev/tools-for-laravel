@@ -20,8 +20,19 @@ class CommonErrorHandler
         if ($throwable instanceof ValidationException) {
             return $this->handle422($throwable);
         }
+        return $this->handle500($throwable);
+    }
 
-        return $errorData;
+    private function handle500(\Throwable $throwable): ErrorData
+    {
+        $result = new ErrorData();
+        $result->errorCode = 500;
+        $result->errorData = [
+            'error'=>true,
+            'errorCode'=>500,
+            'errorMessage' => $throwable->getMessage()
+        ];
+        return $result;
     }
 
     private function handle404(\Symfony\Component\HttpKernel\Exception\HttpException|HttpException $throwable): ErrorData

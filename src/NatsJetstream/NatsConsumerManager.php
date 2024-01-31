@@ -12,6 +12,9 @@ use Hyperf\Process\AbstractProcess;
 use Hyperf\Process\ProcessManager;
 use Psr\Container\ContainerInterface;
 
+/**
+ * @deprecated
+ */
 class NatsConsumerManager
 {
     public function __construct(private ContainerInterface $container, private EndpointFeatureFlagManager $endpointFeatureFlagManager)
@@ -25,7 +28,7 @@ class NatsConsumerManager
         $classes = $collector->getClassesByAnnotation(Nats::class);
 
         foreach ($classes as $className => $classAttributesInfo) {
-            if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($collector, $className)) {
+            if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($className)) {
                 continue;
             }
             /**
@@ -43,8 +46,8 @@ class NatsConsumerManager
                     app()->make($className),
                     $attributeExemplar->subject,
                     $attributeExemplar->pool ?? 'jetstream',
-                    $attributeExemplar->queue ?? '',
-                    $attributeExemplar->processLag,
+                    $attributeExemplar->queueName ?? '',
+                    $attributeExemplar->interval,
                 );
                 $process->nums = $nums;
                 $process->name = $attributeExemplar->name . '-' . $attributeExemplar->subject;
@@ -56,7 +59,7 @@ class NatsConsumerManager
         $classes = $collector->getClassesByAnnotation(NatsJetstream::class);
 
         foreach ($classes as $className => $classAttributesInfo) {
-            if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($collector, $className)) {
+            if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($className)) {
                 continue;
             }
             /**

@@ -2,8 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\MetricsAbstractions\Controls;
 
-use Hyperf\Metric\Contract\GaugeInterface;
-use Hyperf\Metric\Contract\MetricFactoryInterface;
+use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
 
 trait GaugeControlTrait
 {
@@ -44,7 +43,7 @@ trait GaugeControlTrait
             $instanceOrNull = app()->get('metric-'.static::METRIC_NAME);
         } catch (\Throwable $e) {
             /** @var MetricFactoryInterface $factory */
-            $factory = app()->get(\Hyperf\Nano\App::class)->getContainer()->get(MetricFactoryInterface::class);
+            $factory = app()->make(MetricFactoryInterface::class);
             $instanceOrNull = $factory->makeGauge(static::METRIC_NAME, static::LABEL_NAMES);
             app()->instance('metric-'.static::METRIC_NAME, $instanceOrNull);
         }

@@ -2,7 +2,8 @@
 
 namespace FrockDev\ToolsForLaravel\MetricsAbstractions\Controls;
 
-use Hyperf\Metric\Contract\MetricFactoryInterface;
+use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
+use Prometheus\Counter;
 
 trait CounterControlTrait
 {
@@ -11,18 +12,18 @@ trait CounterControlTrait
     }
     public function add(int $points, array $labels = []) {
         if (!empty($labels)) {
-            $this->getCounter()->with(...$labels)->add($points);
+            $this->getCounter()->incBy($points, $labels);
         } else {
-            $this->getCounter()->add($points);
+            $this->getCounter()->incBy($points);
         }
     }
 
-    private function getCounter() {
+    private function getCounter(): Counter {
         try {
             $instanceOrNull = app()->get('metric-'.static::METRIC_NAME);
         } catch (\Throwable $e) {
             /** @var MetricFactoryInterface $factory */
-            $factory = app()->get(\Hyperf\Nano\App::class)->getContainer()->get(MetricFactoryInterface::class);
+            $factory = app()->make(MetricFactoryInterface::class);
             $instanceOrNull = $factory->makeCounter(static::METRIC_NAME, static::LABEL_NAMES);
             app()->instance('metric-'.static::METRIC_NAME, $instanceOrNull);
         }

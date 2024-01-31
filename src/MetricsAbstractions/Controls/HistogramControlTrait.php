@@ -2,36 +2,26 @@
 
 namespace FrockDev\ToolsForLaravel\MetricsAbstractions\Controls;
 
-use Hyperf\Metric\Contract\MetricFactoryInterface;
-use Prometheus\CollectorRegistry;
-
+use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
+use Prometheus\Histogram;
 
 trait HistogramControlTrait
 {
     public function observe(float $value, array $labels = []) {
         if (!empty($labels)) {
-            $this->getCounter()->with(...$labels)->put($value);
+            $this->getCounter()->observe($value, $labels);
         } else {
-            $this->getCounter()->put($value);
+            $this->getCounter()->observe($value);
         }
     }
 
-    private function getCounter() {
+    private function getCounter(): Histogram {
         try {
             $instanceOrNull = app()->get('metric-'.static::METRIC_NAME);
         } catch (\Illuminate\Container\EntryNotFoundException $e) {
-            /** @var CollectorRegistry $registry */
-            $registry = app()->get(\Hyperf\Nano\App::class)->getContainer()->get(CollectorRegistry::class);
-            $registry->registerHistogram(
-                config("metric.metric.prometheus.namespace"),
-                static::METRIC_NAME,
-                static::DESCRIPTION,
-                static::LABEL_NAMES,
-                static::BUCKETS
-            );
             /** @var MetricFactoryInterface $factory */
-            $factory = app()->get(\Hyperf\Nano\App::class)->getContainer()->get(MetricFactoryInterface::class);
-            $instanceOrNull = $factory->makeHistogram(static::METRIC_NAME, static::LABEL_NAMES);
+            $factory = app()->make(MetricFactoryInterface::class);
+            $instanceOrNull = $factory->makeHistogram(static::METRIC_NAME, static::LABEL_NAMES, static::DESCRIPTION, static::BUCKETS);
             app()->instance('metric-'.static::METRIC_NAME, $instanceOrNull);
         }
         return $instanceOrNull;

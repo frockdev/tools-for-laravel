@@ -18,12 +18,15 @@ use FrockDev\ToolsForLaravel\InterceptorInterfaces\PreInterceptorInterface;
 use FrockDev\ToolsForLaravel\NatsCustomization\CustomNatsClient;
 use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
+use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactory;
+use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Jaeger\Config;
 use OpenTracing\NoopTracer;
 use OpenTracing\Tracer;
+use Prometheus\Storage\InMemory;
 use const Jaeger\SAMPLER_TYPE_CONST;
 
 class FrockServiceProvider extends ServiceProvider
@@ -79,6 +82,16 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(AddToArrayToGrpcObjects::class);
         $this->commands(GenerateGrafanaMetrics::class);
         $this->commands(CollectAttributesToCache::class);
+
+        $this->app->singleton(\Prometheus\CollectorRegistry::class, function() {
+            return new \Prometheus\CollectorRegistry(new InMemory());
+        });
+
+//        $this->app->singleton(NatsDriver::class, function() {
+//            return new NatsDriver();
+//        });
+
+        $this->app->bind(MetricFactoryInterface::class, MetricFactory::class);
 
         // own laravel attributes collector
         $collector = new Collector($this->app);
