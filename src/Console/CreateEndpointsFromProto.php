@@ -329,7 +329,6 @@ class CreateEndpointsFromProto extends Command
                             $this->createInterceptorsArrays($newAbstractClass);
 
                             $newAbstractEndpointNamespace->add($newAbstractClass);
-                            $newAbstractEndpointNamespace->addUse(\Hyperf\Context\Context::class);
 
                             $metricName = str_replace('InnerController', '', $innerGrpcController->getName())
                                 .'::' .$method->getName();
