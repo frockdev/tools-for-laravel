@@ -5,6 +5,7 @@ namespace FrockDev\ToolsForLaravel\Swow\Nats;
 use Basis\Nats\Consumer\Configuration;
 use Basis\Nats\Consumer\Runtime;
 use Closure;
+use Swow\Channel;
 
 class SwowNatsConsumer
 {
@@ -16,7 +17,7 @@ class SwowNatsConsumer
     private int $iterations = PHP_INT_MAX;
 
     public function __construct(
-        public readonly SwowNatsClient $client,
+        public readonly NewNatsClient $client,
         private readonly Configuration $configuration,
     ) {
     }
@@ -92,65 +93,33 @@ class SwowNatsConsumer
         return $this->iterations;
     }
 
-    public function handle(Closure $handler, Closure $emptyHandler = null): int
+    public function handle(Closure $handler): int
     {
         $requestSubject = '$JS.API.CONSUMER.MSG.NEXT.' . $this->getStream() . '.' . $this->getName();
-        $args = [
-            'batch' => $this->getBatching(),
-        ];
-
-        // convert to nanoseconds
-        $expires = intval(1_000_000_000 * $this->getExpires());
-        if ($expires) {
-            $args['expires'] = $expires;
-        } else {
-            $args['no_wait'] = true;
-        }
 
         $handlerSubject = 'handler.' . bin2hex(random_bytes(4));
 
-        $runtime = new Runtime();
-
         $this->create();
-
-        $this->client->subscribe($handlerSubject, function ($message) use ($handler, $runtime) {
+        $responsesCount = 0;
+        $channelForResponsesCount = new Channel($this->getIterations());
+        $this->client->subscribe($handlerSubject, function ($message) use ($handler, $channelForResponsesCount) {
+            $channelForResponsesCount->push(1);
             if (!$message->isEmpty()) {
-                $runtime->empty = false;
-                $runtime->processed++;
                 $handler($message);
             }
         });
 
         $iteration = $this->getIterations();
         while ($iteration--) {
-            $this->client->publish($requestSubject, $args, $handlerSubject);
 
-            foreach (range(1, $this->batch) as $_) {
-                $runtime->empty = true;
-                // expires request means that we should receive answer from stream
-                $this->client->process($this->expires ? PHP_INT_MAX : null);
-
-                if ($runtime->empty) {
-                    if ($emptyHandler) {
-                        $emptyHandler();
-                    }
-                    break;
-                }
-            }
-
-            if ($this->interrupt) {
-                $this->interrupt = false;
-                break;
-            }
-
-            if ($iteration && $runtime->empty && !$expires) {
-                usleep((int) floor($this->getDelay() * 1_000_000));
-            }
+            $this->client->publish($requestSubject, [], $handlerSubject);
+            $channelForResponsesCount->pop();
+            $responsesCount++;
         }
 
         $this->client->unsubscribe($handlerSubject);
 
-        return $runtime->processed;
+        return $responsesCount;
     }
 
     public function info()
@@ -160,11 +129,13 @@ class SwowNatsConsumer
 
     public function interrupt()
     {
+        throw new \Exception('Not implemented interruption');
         $this->interrupt = true;
     }
 
     public function setBatching(int $batch): self
     {
+        throw new \Exception('Not implemented batching');
         $this->batch = $batch;
 
         return $this;

@@ -10,6 +10,7 @@ use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Swow\Coroutine;
 
 class NatsJetStreamConsumerProcess extends AbstractProcess
@@ -17,7 +18,7 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
     private object $endpoint;
     private string $subject;
     private string $streamName;
-    private ?float $interval;
+    private ?int $interval;
     private CommonErrorHandler $errorHandler;
     private NatsDriver $driver;
 
@@ -25,14 +26,14 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
         object $endpoint,
         string $subject,
         string $streamName,
-        int  $interval
+        ?int  $interval=null
     )
     {
         $this->endpoint = $endpoint;
         $this->subject = $subject;
         $this->streamName = $streamName;
         $this->interval = $interval;
-        $this->driver = new NatsDriver(); //todo check working with singleton, but maybe change to separated connections
+        $this->driver = new NatsDriver($subject.'_'.$streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
         $this->errorHandler = new CommonErrorHandler();
     }
 

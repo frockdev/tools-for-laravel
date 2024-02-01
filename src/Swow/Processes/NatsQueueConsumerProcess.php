@@ -10,6 +10,7 @@ use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Swow\Coroutine;
 
 class NatsQueueConsumerProcess extends AbstractProcess
@@ -29,7 +30,7 @@ class NatsQueueConsumerProcess extends AbstractProcess
         $this->endpoint = $endpoint;
         $this->subject = $subject;
         $this->queueName = $queueName;
-        $this->driver = new NatsDriver(); //todo check working with singleton, but maybe change to separated connections
+        $this->driver = new NatsDriver($subject.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
         $this->errorHandler = new CommonErrorHandler();
     }
 

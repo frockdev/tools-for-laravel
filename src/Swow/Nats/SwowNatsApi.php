@@ -4,14 +4,17 @@ namespace FrockDev\ToolsForLaravel\Swow\Nats;
 
 use Basis\Nats\Client;
 use Basis\Nats\KeyValue\Bucket;
+use Basis\Nats\Message\Msg;
+use Basis\Nats\Message\Payload;
 use Basis\Nats\Stream\Stream;
+use Swow\Channel;
 
 class SwowNatsApi
 {
     private array $streams = [];
     private array $buckets = [];
 
-    public function __construct(public readonly SwowNatsClient $client)
+    public function __construct(public readonly NewNatsClient $client)
     {
     }
 
@@ -26,7 +29,7 @@ class SwowNatsApi
 
     public function getInfo()
     {
-        return $this->client->api('INFO');
+        $this->client->api('INFO');
     }
 
     public function getStreamList(): array

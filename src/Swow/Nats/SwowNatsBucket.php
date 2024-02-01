@@ -16,7 +16,7 @@ class SwowNatsBucket
     private Configuration $configuration;
 
     public function __construct(
-        public readonly SwowNatsClient $client,
+        public readonly NewNatsClient $client,
         public readonly string $name,
     ) {
         $this->configuration = new Configuration($name);

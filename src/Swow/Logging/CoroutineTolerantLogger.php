@@ -3,6 +3,8 @@
 namespace FrockDev\ToolsForLaravel\Swow\Logging;
 
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use Monolog\Formatter\FormatterInterface;
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\LogRecord;
 

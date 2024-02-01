@@ -33,5 +33,6 @@ ProcessesRegistry::runRegisteredProcesses();
 
 $exitCode = $exitControlChannel->pop();
 
+sleep(2);
 echo 'Exited: ' . $exitCode . PHP_EOL;
 exit($exitCode);

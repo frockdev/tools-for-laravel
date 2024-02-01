@@ -20,12 +20,10 @@ use Exception;
 use Illuminate\Support\Facades\Log;
 use LogicException;
 use Psr\Log\LoggerInterface;
-use Swow\Channel;
-use Swow\Coroutine;
 use Swow\SocketException;
 use Throwable;
 
-class SwowNatsClient
+class SwowNatsClient2
 {
     public Connect $connect;
     public Info $info;
@@ -33,7 +31,7 @@ class SwowNatsClient
 
     private readonly ?Authenticator $authenticator;
 
-    private $socket;
+    private ?\Swow\Socket $socket = null;
     private $context;
     private array $handlers = [];
     private float $ping = 0;
@@ -44,15 +42,10 @@ class SwowNatsClient
 
     private bool $skipInvalidMessages = false;
 
-    /**
-     * @param Configuration $configuration
-     * @param LoggerInterface|null $logger
-     * @deprecated
-     */
     public function __construct(
         public readonly Configuration $configuration = new Configuration(),
-        public ?LoggerInterface $logger = null,
-    ) {
+    )
+    {
         $this->api = new SwowNatsApi($this);
 
         $this->authenticator = Authenticator::create($this->configuration);
@@ -61,7 +54,7 @@ class SwowNatsClient
     public function api($command, array $args = [], ?Closure $callback = null): ?object
     {
         $subject = "\$JS.API.$command";
-        $options = json_encode((object) $args);
+        $options = json_encode((object)$args);
 
         if ($callback) {
             return $this->request($subject, $options, $callback);
@@ -87,32 +80,21 @@ class SwowNatsClient
     public function connect(): self
     {
         if ($this->socket) {
-            $this->logger->debug('already connected');
+            Log::debug('already connected');
             return $this;
         }
 
         $config = $this->configuration;
 
-        $dsn = "$config->host:$config->port";
-        $errorCode = null;
-        $errorMessage = null;
-        Coroutine::run(function() use ($errorCode, $config, $dsn) {
-            $flags = STREAM_CLIENT_CONNECT;
-            $this->context = stream_context_create();
-            $this->socket = @stream_socket_client($dsn, $errorCode, $errorMessage, $config->timeout, $flags, $this->context);
-        });
-        $channelSocket = new Channel(1);
-        $channelContext = new Channel(1);
-        $this->socket = $channelSocket->pop();
-        $this->context = $channelContext->pop();
+        $dsn = "$config->host";
 
-        if ($errorCode || !$this->socket) {
-            throw new Exception($errorMessage ?: "Connection error", $errorCode);
+        $this->socket = new \Swow\Socket(\Swow\Socket::TYPE_TCP);
+        try {
+            $this->socket->connect($dsn, $config->port, 10);
+        } catch (SocketException $e) {
+            throw new \Exception('We have problem with connection, consuming is stopping', 633, $e);
         }
 
-        $this->setTimeout($config->timeout);
-
-        // Process server info
         $this->process($config->timeout);
 
         $this->connect = new Connect($config->getOptions());
@@ -135,7 +117,7 @@ class SwowNatsClient
             $timeout = $this->configuration->timeout;
         }
 
-        $context = (object) [
+        $context = (object)[
             'processed' => false,
             'result' => null,
             'threshold' => microtime(true) + $timeout,
@@ -227,28 +209,33 @@ class SwowNatsClient
         return $this;
     }
 
-    public function setLogger(?LoggerInterface $logger): self
-    {
-        $this->logger = $logger;
-        return $this;
-    }
+//    public function setLogger(?LoggerInterface $logger): self
+//    {
+//        $this->logger = $logger;
+//        return $this;
+//    }
 
-    public function setTimeout(float $value): self
-    {
-        $this->connect();
-        $seconds = (int) floor($value);
-        $milliseconds = (int) (1000 * ($value - $seconds));
-
-        stream_set_timeout($this->socket, $seconds, $milliseconds);
-
-        return $this;
-    }
+//    public function setTimeout(float $value): self
+//    {
+//        $this->connect();
+//        $seconds = (int)floor($value);
+//        $milliseconds = (int)(1000 * ($value - $seconds));
+//
+//        stream_set_timeout($this->socket, $seconds, $milliseconds);
+//
+//        return $this;
+//    }
 
     /**
      * @throws Throwable
      */
     public function process(null|int|float $timeout = 0)
     {
+        if ($this->innerBuffer === '') {
+            $this->readToInnerBuffer();
+        }
+        Log::debug('BUFFER_BUFFER_BUFFER: '.$this->innerBuffer);
+
         $this->lastDataReadFailureAt = null;
         $max = microtime(true) + $timeout;
         $ping = time() + $this->configuration->pingInterval;
@@ -256,15 +243,15 @@ class SwowNatsClient
         $iteration = 0;
         while (true) {
             try {
-                $line = $this->readLine(1024, "\r\n");
+                $line = $this->getMessageFromInnerBuffer("\r\n");
 
                 if ($line && ($this->ping || trim($line) != 'PONG')) {
                     break;
                 }
-                if ($line === false && $ping < time()) {
+                if (!$line && $ping < time()) {
                     try {
                         $this->send(new Ping([]));
-                        $line = $this->readLine(1024, "\r\n");
+                        $line = $this->getMessageFromInnerBuffer("\r\n");
                         $ping = time() + $this->configuration->pingInterval;
                         if ($line && ($this->ping || trim($line) != 'PONG')) {
                             break;
@@ -280,7 +267,6 @@ class SwowNatsClient
                 if ($now >= $max) {
                     return null;
                 }
-                $this->logger?->debug('sleep', compact('max', 'now'));
                 $this->configuration->delay($iteration++);
             } catch (Throwable $e) {
                 $this->processSocketException($e);
@@ -289,7 +275,7 @@ class SwowNatsClient
 
         switch (trim($line)) {
             case 'PING':
-                $this->logger?->debug('receive ' . $line);
+                Log::debug('receive ' . $line);
                 $this->send(new Pong([]));
                 $now = microtime(true);
                 if ($now >= $max) {
@@ -298,49 +284,30 @@ class SwowNatsClient
                 return $this->process($max - $now);
 
             case 'PONG':
-                $this->logger?->debug('receive ' . $line);
+                Log::debug('receive ' . $line);
                 return $this->pong = microtime(true);
 
             case '+OK':
-                return $this->logger?->debug('receive ' . $line);
+                return Log::debug('receive ' . $line);
         }
 
         try {
             $message = Factory::create(trim($line));
         } catch (Throwable $exception) {
-            $this->logger?->debug($line);
+            Log::debug($line);
             throw $exception;
         }
 
         switch (get_class($message)) {
             case Info::class:
-                $this->logger?->debug('receive ' . $line);
+                Log::debug('receive ' . $line);
                 $this->handleInfoMessage($message);
                 return $this->info = $message;
 
             case Msg::class:
-                $payload = '';
-                if ($message->length) {
-                    $iteration = 0;
-                    while (strlen($payload) < $message->length) {
-                        $payloadLine = $this->readLine($message->length, '', false);
-                        if (!$payloadLine) {
-                            if ($iteration > 16) {
-                                $exception = new LogicException("No payload for message $message->sid");
-                                $this->processSocketException($exception);
-                                break;
-                            }
-                            $this->configuration->delay($iteration++);
-                            continue;
-                        }
-                        if (strlen($payloadLine) != $message->length) {
-                            $this->logger?->debug('got ' . strlen($payloadLine) . '/' . $message->length . ': ' . $payloadLine);
-                        }
-                        $payload .= $payloadLine;
-                    }
-                }
+                $payload = $this->getMessageFromInnerBufferByLength($message->length);
                 $message->parse($payload);
-                $this->logger?->debug('receive ' . $line . $payload);
+                Log::debug('receive ' . $line);
                 if (!array_key_exists($message->sid, $this->handlers)) {
                     if ($this->skipInvalidMessages) {
                         return;
@@ -378,18 +345,19 @@ class SwowNatsClient
      */
     private function enableTls(bool $requireClientCert): void
     {
+        throw new \Exception('TLS is not supported yet');
         if ($requireClientCert) {
             if (!empty($this->configuration->tlsKeyFile)) {
                 if (!file_exists($this->configuration->tlsKeyFile)) {
                     throw new Exception("tlsKeyFile file does not exist: " . $this->configuration->tlsKeyFile);
                 }
-                stream_context_set_option($this->context, 'ssl', 'local_pk', $this->configuration->tlsKeyFile);
+//                stream_context_set_option($this->context, 'ssl', 'local_pk', $this->configuration->tlsKeyFile);
             }
             if (!empty($this->configuration->tlsCertFile)) {
                 if (!file_exists($this->configuration->tlsCertFile)) {
                     throw new Exception("tlsCertFile file does not exist: " . $this->configuration->tlsCertFile);
                 }
-                stream_context_set_option($this->context, 'ssl', 'local_cert', $this->configuration->tlsCertFile);
+//                stream_context_set_option($this->context, 'ssl', 'local_cert', $this->configuration->tlsCertFile);
             }
         }
 
@@ -397,16 +365,16 @@ class SwowNatsClient
             if (!file_exists($this->configuration->tlsCaFile)) {
                 throw new Exception("tlsCaFile file does not exist: " . $this->configuration->tlsCaFile);
             }
-            stream_context_set_option($this->context, 'ssl', 'cafile', $this->configuration->tlsCaFile);
+//            stream_context_set_option($this->context, 'ssl', 'cafile', $this->configuration->tlsCaFile);
         }
 
-        if (!stream_socket_enable_crypto(
-            $this->socket,
-            true,
-            STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT
-        )) {
-            throw new Exception('Failed to connect: Error enabling TLS');
-        }
+//        if (!stream_socket_enable_crypto(
+//            $this->socket,
+//            true,
+//            STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT
+//        )) {
+//            throw new Exception('Failed to connect: Error enabling TLS');
+//        }
     }
 
 
@@ -433,7 +401,7 @@ class SwowNatsClient
     private function processSocketException(Throwable $e): self
     {
         if (!$this->configuration->reconnect) {
-            $this->logger?->error($e->getMessage());
+            Log::debug($e->getMessage());
             throw $e;
         }
 
@@ -461,30 +429,16 @@ class SwowNatsClient
 
     private function send(Prototype $message): self
     {
+
         $this->connect();
-
         $line = $message->render() . "\r\n";
-        $length = strlen($line);
+        Log::debug('send ' . $line);
 
-        $this->logger?->debug('send ' . $line);
-
-        while (strlen($line)) {
-            try {
-                $written = @fwrite($this->socket, $line, 1024);
-                if ($written === false) {
-                    throw new LogicException('Error sending data');
-                }
-                if ($written === 0) {
-                    throw new LogicException('Broken pipe or closed connection');
-                }
-                if ($length == $written) {
-                    break;
-                }
-                $line = substr($line, $written);
-            } catch (Throwable $e) {
-                $this->processSocketException($e);
-                $line = $message->render() . "\r\n";
-            }
+        try {
+            $this->socket->send($line);
+        } catch (Throwable $e) {
+            $this->processSocketException($e);
+            $line = $message->render() . "\r\n";
         }
 
         if ($this->configuration->verbose && $line !== "PING\r\n") {
@@ -493,6 +447,39 @@ class SwowNatsClient
         }
 
         return $this;
+
+//        $this->connect();
+//
+//        $line = $message->render() . "\r\n";
+//        $length = strlen($line);
+//
+//        Log::debug('send ' . $line);
+//
+//        while (strlen($line)) {
+//            try {
+//                $written = @fwrite($this->socket, $line, 1024);
+//                if ($written === false) {
+//                    throw new LogicException('Error sending data');
+//                }
+//                if ($written === 0) {
+//                    throw new LogicException('Broken pipe or closed connection');
+//                }
+//                if ($length == $written) {
+//                    break;
+//                }
+//                $line = substr($line, $written);
+//            } catch (Throwable $e) {
+//                $this->processSocketException($e);
+//                $line = $message->render() . "\r\n";
+//            }
+//        }
+//
+//        if ($this->configuration->verbose && $line !== "PING\r\n") {
+//            // get feedback
+//            $this->process($this->configuration->timeout);
+//        }
+//
+//        return $this;
     }
 
     public function setName(string $name): self
@@ -507,22 +494,72 @@ class SwowNatsClient
         return $this;
     }
 
-    private function readLine(int $length, string $ending = '', bool $checkTimeout = true): string|bool
+    private string $innerBuffer = '';
+
+    /**
+     * @param string $source
+     * @param string $delimiter
+     * @return string
+     * This function should find first $delimiter substring in $source and return all data before it
+     * and after that should remove from $source returned data including $delimiter
+     */
+    private function getMessageFromInnerBuffer(string $delimiter): string
     {
-        $line = stream_get_line($this->socket, $length, $ending);
-        if ($line || !$checkTimeout) {
-            $this->lastDataReadFailureAt = null;
-            return $line;
+        $delimiterPosition = strpos($this->innerBuffer, $delimiter);
+        if (strlen($this->innerBuffer)===0) return '';
+        if ($delimiterPosition === false) {
+            $result =  $this->innerBuffer;
+            $this->innerBuffer = '';
+            return $result;
         }
 
-        $now = microtime(true);
-        $this->lastDataReadFailureAt = $this->lastDataReadFailureAt ?? $now;
-        $timeWithoutDataRead = $now - $this->lastDataReadFailureAt;
+        $message = substr($this->innerBuffer, 0, $delimiterPosition);
+        $this->innerBuffer = substr($this->innerBuffer, $delimiterPosition + strlen($delimiter));
 
-        if ($timeWithoutDataRead > $this->configuration->timeout) {
-            throw new LogicException('Socket read timeout');
-        }
-
-        return false;
+        return $message;
     }
+
+    private function readToInnerBuffer()
+    {
+        $buffer = new \Swow\Buffer(\Swow\Buffer::COMMON_SIZE);
+        $this->socket->recv(
+            buffer: $buffer,
+            timeout: $this->configuration->timeout * 1000
+        );
+        $this->innerBuffer .= $buffer->toString();
+    }
+
+    private function getMessageFromInnerBufferByLength(int $length): string
+    {
+        $message = substr($this->innerBuffer, 0, $length);
+        $this->innerBuffer = substr($this->innerBuffer, $length);
+
+        return $message;
+    }
+
+    /**
+     * @param int $length
+     * @param string $ending
+     * @param bool $checkTimeout
+     * @return string|bool
+     * @deprecated
+     */
+//    private function readLine(int $length, string $ending = '', bool $checkTimeout = true): string|bool
+//    {
+//        $line = $this->getMessageFromInnerBuffer($this->innerBuffer, $ending);
+//        if ($line || !$checkTimeout) {
+//            $this->lastDataReadFailureAt = null;
+//            return $line;
+//        }
+//
+//        $now = microtime(true);
+//        $this->lastDataReadFailureAt = $this->lastDataReadFailureAt ?? $now;
+//        $timeWithoutDataRead = $now - $this->lastDataReadFailureAt;
+//
+//        if ($timeWithoutDataRead > $this->configuration->timeout) {
+//            throw new LogicException('Socket read timeout');
+//        }
+//
+//        return false;
+//    }
 }

@@ -5,6 +5,7 @@ namespace FrockDev\ToolsForLaravel\Swow;
 use Basis\Nats\Client;
 use Basis\Nats\Message\Payload;
 use Closure;
+use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
 use FrockDev\ToolsForLaravel\Swow\Nats\SwowNatsClient;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Facades\Log;
@@ -14,9 +15,9 @@ use Throwable;
 
 class NatsDriver
 {
-    private SwowNatsClient $client;
+    private NewNatsClient $client;
 
-    public function __construct()
+    public function __construct(string $name)
     {
         $config = new \Basis\Nats\Configuration([
             'host'=>config('nats.host', env('NATS_HOST', 'nats.nats')),
@@ -24,24 +25,25 @@ class NatsDriver
             'user'=>config('nats.user', env('NATS_USER', '')),
             'pass'=>config('nats.pass', env('NATS_PASS', '')),
             'timeout'=>(float)config('nats.timeout', (float)env('NATS_TIMEOUT', 1)),
-            'reconnect'=>(bool)config('nats.reconnect', env('NATS_RECONNECT', true)),
         ]);
-        $this->client = new SwowNatsClient($config);
+        $this->client = new NewNatsClient($config, $name);
     }
 
     public function publish(string $subject, string|Message $payload, $replyTo = null): void
     {
-        try {
-            if (is_string($payload)) {
-                $this->client->publish($subject, $payload, $replyTo);
-            } else {
-                $this->client->publish($subject, $payload->serializeToJsonString(), $replyTo);
-            }
-        } finally {
 
+        if (is_string($payload)) {
+            $this->client->publish($subject, $payload, $replyTo);
+        } else {
+            $this->client->publish($subject, $payload->serializeToJsonString(), $replyTo);
         }
     }
 
+    /**
+     * @param Payload $payload
+     * @return void
+     * @deprecated
+     */
     private function logMessageFromSubscribe(Payload $payload) {
         $headers = '';
         foreach ($payload->headers as $key=>$value) {
@@ -50,6 +52,12 @@ class NatsDriver
         Log::debug('NatsDriver: received message at ' . $payload->subject . ', headers: ('. $headers . '),  body:' . $payload->body);
     }
 
+    /**
+     * @param Payload $payload
+     * @param string $streamName
+     * @return void
+     * @deprecated
+     */
     private function logMessageFromSubscribeToStream(Payload $payload, string $streamName) {
         $headers = '';
         foreach ($payload->headers as $key=>$value) {
@@ -60,41 +68,51 @@ class NatsDriver
 
     public function subscribe(string $subject, string $queue, Closure $callback, string $deserializeTo): void
     {
-        $function = function (Payload $payload) use ($callback, $deserializeTo) {
-            ContextStorage::set('X-Trace-Id', $payload->getHeader('X-Trace-Id') ?? uuid_create());
-            $this->logMessageFromSubscribe($payload);
-            /** @var Message $result */
-            $result = new $deserializeTo();
-            $result->mergeFromJsonString($payload->body);
-            $response = $callback($result, $payload);
-            Log::info('NatsDriver: response from callback: ' . json_encode($response));
-            ContextStorage::clearStorage();
-            return $response;
+        $wrappedFunction = function (Payload $payload) use ($callback, $deserializeTo, $subject) {
+            try {
+                ContextStorage::set('X-Trace-Id', $payload->getHeader('X-Trace-Id') ?? uuid_create());
+                $this->logMessageFromSubscribe($payload);
+                /** @var Message $result */
+                $result = new $deserializeTo();
+                $result->mergeFromJsonString($payload->body);
+                $response = $callback($result, $payload);
+                Log::info('NatsDriver: response from callback: ' . json_encode($response));
+                ContextStorage::clearStorage();
+                return $response;
+            } catch (\Google\Protobuf\Internal\GPBDecodeException $exception) {
+                Log::error('Failed to decode message at ' . $subject . ': ' . $exception->getMessage(),
+                    [
+                        'payloadBody'=>$payload->body
+                    ]);
+                throw $exception;
+            }
         };
         try {
             if ($queue === '') {
-                $this->client->subscribe($subject, $function);
+                $this->client->subscribe($subject, $wrappedFunction);
             } else {
-                $this->client->subscribeQueue($subject, $queue, $function);
+                $this->client->subscribeQueue($subject, $queue, $wrappedFunction);
             }
         } catch (Throwable $exception) {
             throw $exception;
         }
-        while(true) {
-            try {
-                $this->client->process();
-            } catch (Throwable $exception) {
-                Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
-                    'exception' => $exception,
-                ]);
-                throw $exception;
+        Coroutine::run(function () {
+            while(true) {
+                try {
+                    $this->client->startReceiving();
+                } catch (Throwable $exception) {
+                    Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
+                        'exception' => $exception,
+                    ]);
+                    throw $exception;
+                }
             }
-        }
+        });
     }
 
     public function subscribeToStream(string $subject, string $streamName, Closure $callback, string $deserializeTo, ?float $period = null): void
     {
-        $function = function (Payload $payload) use ($callback, $deserializeTo, $subject, $streamName) {
+        $wrappedFunction = function (Payload $payload) use ($callback, $deserializeTo, $subject, $streamName) {
             ContextStorage::set('X-Trace-Id', $payload->getHeader('X-Trace-Id') ?? uuid_create());
             $this->logMessageFromSubscribeToStream($payload, $streamName);
             try {
@@ -114,6 +132,7 @@ class NatsDriver
                 Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
                     'exception' => $exception,
                 ]);
+                ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode()>0?$exception->getCode():700);
                 throw $exception;
             } finally {
                 ContextStorage::clearStorage();
@@ -121,8 +140,19 @@ class NatsDriver
 
         };
         $firstStart = true;
+        Coroutine::run(function () {
+            while(true) {
+                try {
+                    $this->client->startReceiving();
+                } catch (Throwable $exception) {
+                    Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
+                        'exception' => $exception,
+                    ]);
+                    throw $exception;
+                }
+            }
+        });
         while (true) {
-
             try {
                 $jetStream = $this->client->getApi()->getStream($streamName);
                 $consumerName = $streamName . '-' . Str::random() . '-' . config('app.name') . '-' . config('app.env') . '-' . env('NATS_SPECIAL_POSTFIX', 'default');
@@ -134,27 +164,38 @@ class NatsDriver
                         sleep($period);
                     }
                 }
-                $consumer->handle($function);
+            } catch (Throwable $exception) {
+                Log::error('NatsDriver: error while creating consumer: ' . $exception->getMessage(), [
+                    'exception' => $exception,
+                ]);
+
+                ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode()>0?$exception->getCode():700);
+                throw $exception;
+            }
+
+            try {
+                $consumer->handle($wrappedFunction);
             } catch (Throwable $exception) {
                 Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
                     'exception' => $exception,
                 ]);
+
                 ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode()>0?$exception->getCode():700);
                 throw $exception;
             } finally {
-                $consumer?->delete();
+                $consumer->delete();
                 $firstStart = false;
             }
         }
     }
 
-    public function process(int $timeout = 10)
-    {
-        try {
-            $this->client->process($timeout);
-        } catch (Throwable $exception) {
-            throw $exception;
-        }
-    }
+//    public function process(int $timeout = 10)
+//    {
+//        try {
+//            $this->client->process($timeout);
+//        } catch (Throwable $exception) {
+//            throw $exception;
+//        }
+//    }
 
 }

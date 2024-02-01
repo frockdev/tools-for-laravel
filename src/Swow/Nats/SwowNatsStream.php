@@ -4,13 +4,14 @@ namespace FrockDev\ToolsForLaravel\Swow\Nats;
 
 use Basis\Nats\Consumer\Configuration as ConsumerConfiguration;
 use Basis\Nats\Stream\Configuration;
+use Swow\Channel;
 
 class SwowNatsStream
 {
     private array $consumers = [];
     private readonly Configuration $configuration;
 
-    public function __construct(public readonly SwowNatsClient $client, string $name)
+    public function __construct(public readonly NewNatsClient $client, string $name)
     {
         $this->configuration = new Configuration($name);
     }
@@ -70,7 +71,8 @@ class SwowNatsStream
 
     public function getConsumerNames(): array
     {
-        return $this->client->api('CONSUMER.NAMES.' . $this->getName())->consumers;
+        $result = $this->client->api('CONSUMER.NAMES.' . $this->getName());
+        return $result->consumers;
     }
 
     public function getLastMessage(string $subject)

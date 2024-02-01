@@ -52,7 +52,7 @@ class NatsJetstreamProcessManager {
         }
     }
 
-    private function createProcess(object $consumer, string $subject, string $stream, int $interval): AbstractProcess
+    private function createProcess(object $consumer, string $subject, string $stream, ?int $interval=null): AbstractProcess
     {
         return new NatsJetStreamConsumerProcess($consumer, $subject, $stream, $interval);
     }
