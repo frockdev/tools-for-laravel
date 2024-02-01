@@ -31,11 +31,27 @@ class NatsDriver
 
     public function publish(string $subject, string|Message $payload, $replyTo = null): void
     {
-
         if (is_string($payload)) {
             $this->client->publish($subject, $payload, $replyTo);
         } else {
             $this->client->publish($subject, $payload->serializeToJsonString(), $replyTo);
+        }
+    }
+
+    /**
+     * @param string $subject
+     * @param string|Message $payload
+     * @param $replyTo
+     * @return string
+     * @deprecated
+     * @internal
+     * @todo this method should be tested
+     */
+    public function publishSync(string $subject, string|Message $payload, $replyTo = null): string {
+        if (is_string($payload)) {
+            return $this->client->dispatch($subject, $payload, $replyTo);
+        } else {
+            return $this->client->dispatch($subject, $payload->serializeToJsonString(), $replyTo);
         }
     }
 
