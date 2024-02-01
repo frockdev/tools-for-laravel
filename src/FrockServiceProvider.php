@@ -15,7 +15,6 @@ use FrockDev\ToolsForLaravel\EventLIsteners\BeforeRequestProcessedListener;
 use FrockDev\ToolsForLaravel\Events\BeforeRequestProcessedEvent;
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PostInterceptorInterface;
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PreInterceptorInterface;
-use FrockDev\ToolsForLaravel\NatsCustomization\CustomNatsClient;
 use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
 use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactory;
@@ -87,10 +86,6 @@ class FrockServiceProvider extends ServiceProvider
             return new \Prometheus\CollectorRegistry(new InMemory());
         });
 
-//        $this->app->singleton(NatsDriver::class, function() {
-//            return new NatsDriver();
-//        });
-
         $this->app->bind(MetricFactoryInterface::class, MetricFactory::class);
 
         // own laravel attributes collector
@@ -99,28 +94,7 @@ class FrockServiceProvider extends ServiceProvider
 
         $this->prepareEndpointsAndInterceptors($collector);
 
-        $this->app->bind(GrpcNatsMessenger::class, function ($app) {
-            $options = new Configuration([
-                'host'=>config('nats.address'),
-                'user'=>config('nats.user'),
-                'pass'=>config('nats.pass'),
-                'timeout'=>config('nats.timeout', 30),
-            ]);
-            $client = new CustomNatsClient($options, Log::getLogger());
-            return new GrpcNatsMessenger($client);
-        });
-
-        $this->app->bind(JsonNatsMessenger::class, function ($app) {
-            $options = new Configuration([
-                'host'=>config('nats.address'),
-                'user'=>config('nats.user'),
-                'pass'=>config('nats.pass'),
-                'timeout'=>config('nats.timeout', 30),
-            ]);
-            $client = new CustomNatsClient($options, Log::getLogger());
-            return new JsonNatsMessenger($client);
-        });
-
+        //@todo should make tracer async
         $this->app->singleton(Tracer::class, function($app) {
             if (config('jaeger.traceEnabled', false)===true) {
                 $config = new Config(
@@ -147,9 +121,6 @@ class FrockServiceProvider extends ServiceProvider
 
     public function boot()
     {
-        Event::listen(BeforeRequestProcessedEvent::class,
-            [BeforeRequestProcessedListener::class, 'handle']
-        );
 
         $this->publishes([
             __DIR__.'/../config/frock.php' => config_path('frock.php'),

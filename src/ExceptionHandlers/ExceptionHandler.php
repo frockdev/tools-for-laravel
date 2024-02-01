@@ -4,6 +4,7 @@ namespace FrockDev\ToolsForLaravel\ExceptionHandlers;
 
 use Throwable;
 
+//@todo check if we need own exceptions handler for Standard Laravel Http Mode
 class ExceptionHandler extends \Illuminate\Foundation\Exceptions\Handler
 {
     /**
