@@ -2,8 +2,6 @@
 
 namespace FrockDev\ToolsForLaravel\Support;
 
-use function Hyperf\Support\env;
-
 class AppModeResolver
 {
     private const HTTP_APP_MODE = 'http';
