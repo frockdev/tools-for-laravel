@@ -2,11 +2,10 @@
 
 namespace FrockDev\ToolsForLaravel\Swow;
 
-use Basis\Nats\Client;
 use Basis\Nats\Message\Payload;
 use Closure;
+use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
 use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
-use FrockDev\ToolsForLaravel\Swow\Nats\SwowNatsClient;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -156,11 +155,15 @@ class NatsDriver
 
         };
         $firstStart = true;
-        Coroutine::run(function () {
+        Coroutine::run(function () use ($subject, $streamName) {
             while(true) {
+                $componentName = 'nats_consumer_' . $streamName . '_' . $subject;
                 try {
+                    Liveness::setLiveness($componentName, 200, 'started');
                     $this->client->startReceiving();
+                    Liveness::setLiveness($componentName, 200, 'stopped(ok)');
                 } catch (Throwable $exception) {
+                    Liveness::setLiveness($componentName, 500, 'fault. '.$exception->getMessage());
                     Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
                         'exception' => $exception,
                     ]);
