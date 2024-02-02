@@ -5,7 +5,6 @@ namespace FrockDev\ToolsForLaravel\Swow\Processes;
 use Basis\Nats\Message\Payload;
 use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
 use FrockDev\ToolsForLaravel\ExceptionHandlers\Data\ErrorData;
-use FrockDev\ToolsForLaravel\NatsJetstream\NatsJetstreamGrpcDriver;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
 use Google\Protobuf\Internal\Message;
