@@ -2,7 +2,9 @@
 
 namespace FrockDev\ToolsForLaravel\Support;
 
+use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use FrockDev\ToolsForLaravel\Swow\ProcessManagement\LivenessProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsJetstreamProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsQueueProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager;
@@ -10,10 +12,12 @@ use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager
 class FrockLaravelStartSupport
 {
     private AppModeResolver $appModeResolver;
+    private Collector $collector;
 
     public function __construct(AppModeResolver $appModeResolver)
     {
         $this->appModeResolver = $appModeResolver;
+        $this->collector = app()->make(Collector::class);
     }
 
     public function initializeLaravel(string $basePath): \Illuminate\Foundation\Application {
@@ -37,6 +41,9 @@ class FrockLaravelStartSupport
         if ($this->appModeResolver->isNatsAllowedToRun()) {
             $this->loadNatsService();
         }
+
+        //latest
+        $this->loadLivenessService();
     }
 
     public function runLoggerService() {
@@ -73,6 +80,12 @@ class FrockLaravelStartSupport
         $natsJetStreamManager->registerProcesses();
         $natsQueueService = app()->make(NatsQueueProcessManager::class);
         $natsQueueService->registerProcesses();
+    }
+
+    private function loadLivenessService() {
+        /** @var LivenessProcessManager $livenessProcessManager */
+        $livenessProcessManager = app()->make(LivenessProcessManager::class);
+        $livenessProcessManager->registerProcesses();
     }
 
     private function runPrometheus()
