@@ -30,7 +30,9 @@ class SwowNatsConsumer
                 'CONSUMER.DURABLE.CREATE.' . $this->getStream() . '.' . $this->getName();
 
             $result = $this->client->api($command, $this->configuration->toArray());
-
+            if ($result->error) {
+                throw new \Exception('Consumer creation failed: ', ['natsError'=>$result->error]);
+            }
             if ($this->configuration->isEphemeral()) {
                 $this->configuration->setName($result->getName());
             }
