@@ -11,16 +11,11 @@ use FrockDev\ToolsForLaravel\Console\AddNamespacesToComposerJson;
 use FrockDev\ToolsForLaravel\Console\GenerateGrafanaMetrics;
 use FrockDev\ToolsForLaravel\Console\PrepareProtoFiles;
 use FrockDev\ToolsForLaravel\Console\ResetNamespacesInComposerJson;
-use FrockDev\ToolsForLaravel\EventLIsteners\BeforeRequestProcessedListener;
-use FrockDev\ToolsForLaravel\Events\BeforeRequestProcessedEvent;
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PostInterceptorInterface;
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PreInterceptorInterface;
-use FrockDev\ToolsForLaravel\NatsMessengers\JsonNatsMessenger;
-use FrockDev\ToolsForLaravel\NatsMessengers\GrpcNatsMessenger;
+use FrockDev\ToolsForLaravel\Swow\Liveness\Storage;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactory;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Jaeger\Config;
 use OpenTracing\NoopTracer;
@@ -85,6 +80,8 @@ class FrockServiceProvider extends ServiceProvider
         $this->app->singleton(\Prometheus\CollectorRegistry::class, function() {
             return new \Prometheus\CollectorRegistry(new InMemory());
         });
+
+        $this->app->singleton(Storage::class, Storage::class);
 
         $this->app->bind(MetricFactoryInterface::class, MetricFactory::class);
 
