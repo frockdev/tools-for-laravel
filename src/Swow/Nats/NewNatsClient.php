@@ -158,7 +158,6 @@ class NewNatsClient
 
     protected function connect() {
         if ($this->socket) {
-            Log::debug('already connected');
             return;
         }
 
