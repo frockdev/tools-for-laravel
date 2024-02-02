@@ -8,6 +8,7 @@ use FrockDev\ToolsForLaravel\Swow\ProcessManagement\LivenessProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsJetstreamProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsQueueProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager;
+use FrockDev\ToolsForLaravel\Swow\ProcessManagement\SystemMetricsProcessManager;
 
 class FrockLaravelStartSupport
 {
@@ -38,6 +39,7 @@ class FrockLaravelStartSupport
     public function loadServices() {
         $this->runLoggerService();
         $this->runPrometheus();
+        $this->runSystemMetricsCollector();
         if ($this->appModeResolver->isNatsAllowedToRun()) {
             $this->loadNatsService();
         }
@@ -93,6 +95,13 @@ class FrockLaravelStartSupport
         /** @var PrometheusHttpProcessManager $prometheusManager */
         $prometheusManager = app()->make(PrometheusHttpProcessManager::class);
         $prometheusManager->registerProcesses();
+    }
+
+    private function runSystemMetricsCollector()
+    {
+        /** @var SystemMetricsProcessManager $systemMetricsManager */
+        $systemMetricsManager = app()->make(SystemMetricsProcessManager::class);
+        $systemMetricsManager->registerProcesses();
     }
 
 }
