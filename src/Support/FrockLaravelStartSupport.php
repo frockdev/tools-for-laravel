@@ -4,9 +4,11 @@ namespace FrockDev\ToolsForLaravel\Support;
 
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use FrockDev\ToolsForLaravel\Swow\ProcessManagement\HttpRpcProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\LivenessProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsJetstreamProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsQueueProcessManager;
+use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PhpRpcHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\SystemMetricsProcessManager;
 
@@ -43,7 +45,9 @@ class FrockLaravelStartSupport
         if ($this->appModeResolver->isNatsAllowedToRun()) {
             $this->loadNatsService();
         }
-
+        if ($this->appModeResolver->isHttpAllowedToRun()) {
+            $this->runRpcHttpService();
+        }
         //latest
         $this->loadLivenessService();
     }
@@ -102,6 +106,13 @@ class FrockLaravelStartSupport
         /** @var SystemMetricsProcessManager $systemMetricsManager */
         $systemMetricsManager = app()->make(SystemMetricsProcessManager::class);
         $systemMetricsManager->registerProcesses();
+    }
+
+    private function runRpcHttpService()
+    {
+        /** @var PhpRpcHttpProcessManager $manager */
+        $manager = app()->make(PhpRpcHttpProcessManager::class);
+        $manager->registerProcesses();
     }
 
 }

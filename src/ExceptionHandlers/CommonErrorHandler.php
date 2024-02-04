@@ -3,19 +3,26 @@
 namespace FrockDev\ToolsForLaravel\ExceptionHandlers;
 
 use FrockDev\ToolsForLaravel\ExceptionHandlers\Data\ErrorData;
-use Hyperf\HttpMessage\Exception\HttpException;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class CommonErrorHandler
 {
     public function handleError(Throwable $throwable): ?ErrorData {
-        /** @var ErrorData|null $errorData */
-        $errorData = null;
-        if ($throwable instanceof HttpException || $throwable instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+        if (
+            $throwable instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
             if ($throwable->getStatusCode() == 404) {
                 return $this->handle404($throwable);
             }
+        }
+        if ($throwable instanceof \UnexpectedValueException) {
+            return $this->handle400($throwable);
+        }
+        if ($throwable instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+            return $this->handle404($throwable);
+        }
+        if ($throwable->getCode() == 404) {
+            return $this->handle404($throwable);
         }
         if ($throwable instanceof ValidationException) {
             return $this->handle422($throwable);
@@ -35,7 +42,7 @@ class CommonErrorHandler
         return $result;
     }
 
-    private function handle404(\Symfony\Component\HttpKernel\Exception\HttpException|HttpException $throwable): ErrorData
+    private function handle404($throwable): ErrorData
     {
         $result = new ErrorData();
         $result->errorCode = 404;
@@ -59,6 +66,23 @@ class CommonErrorHandler
             'error'=>true,
             'errorCode'=>422,
             'errorMessage' => 'Validation Error. Problems: '.$problems
+        ];
+        return $result;
+    }
+
+    private function handle400(Throwable $throwable)
+    {
+        if (str_contains($throwable->getMessage(), 'Invalid message property:')) {
+            $message = str_replace('Invalid message property:', 'Invalid request field:', $throwable->getMessage());
+        } else {
+            $message = $throwable->getMessage();
+        }
+        $result = new ErrorData();
+        $result->errorCode = 400;
+        $result->errorData = [
+            'error'=>true,
+            'errorCode'=>400,
+            'errorMessage' =>$message
         ];
         return $result;
     }
