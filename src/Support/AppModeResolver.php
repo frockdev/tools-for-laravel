@@ -14,6 +14,7 @@ class AppModeResolver
 
     public function isNatsAllowedToRun(): bool {
         return env('APP_MODE')==self::NATS_APP_MODE
+            || env('APP_MODE')==self::HTTP_GRPC_NATS_APP_MODE
             || env('APP_MODE')==self::ALL_APP_MODE;
     }
 
