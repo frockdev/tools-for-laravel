@@ -5,10 +5,10 @@ namespace FrockDev\ToolsForLaravel\Swow\ProcessManagement;
 use FrockDev\ToolsForLaravel\Annotations\Http;
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\AnnotationsObjectModels\Annotation;
-use FrockDev\ToolsForLaravel\Swow\Processes\PhpRpcHttpProcess;
+use FrockDev\ToolsForLaravel\Swow\Processes\RpcHttpProcess;
 use FrockDev\ToolsForLaravel\Swow\Processes\ProcessesRegistry;
 
-class PhpRpcHttpProcessManager
+class RpcHttpProcessManager
 {
     private Collector $annotationCollector;
 
@@ -20,7 +20,7 @@ class PhpRpcHttpProcessManager
     public function registerProcesses() {
         $routes = $this->findRoutes();
         $process = $this->createProcess($routes);
-        $process->setName('prometheus-http');
+        $process->setName('rpc-http');
         ProcessesRegistry::register($process);
     }
 
@@ -50,6 +50,6 @@ class PhpRpcHttpProcessManager
     }
 
     private function createProcess(array $routes) {
-        return new PhpRpcHttpProcess($routes);
+        return new RpcHttpProcess($routes);
     }
 }
