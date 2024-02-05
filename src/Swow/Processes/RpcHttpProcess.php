@@ -66,7 +66,9 @@ class RpcHttpProcess extends AbstractProcess
                                             ContextStorage::clearStorage();
                                             break;
                                         }
-                                        $requestObject = new ($endpoint::GRPC_INPUT_TYPE)($request->getParsedBody());
+                                        /** @var Message $requestObject */
+                                        $requestObject = new ($endpoint::GRPC_INPUT_TYPE)();
+                                        $requestObject->mergeFromJsonString($request->getBody());
                                     } else {
                                         $connection->error(\Swow\Http\Status::NOT_ALLOWED, 'Method Not Allowed', close: true);
                                         ContextStorage::clearStorage();
