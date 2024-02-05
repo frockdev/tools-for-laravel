@@ -81,8 +81,13 @@ class RpcHttpProcess extends AbstractProcess
                                     $response->addHeader('Content-Type', 'application/json');
                                     $response->addHeader('X-Trace-Id', ContextStorage::get('X-Trace-Id'));
                                     $response->setStatus(200);
+
                                     if (method_exists($result, 'serializeViaSymfonySerializer')) {
-                                        $response->setBody($result->serializeViaSymfonySerializer());
+                                        try {
+                                            $response->setBody($result->serializeViaSymfonySerializer());
+                                        } catch (\Symfony\Component\Serializer\Exception\NotNormalizableValueException $e) {
+                                            $response->setBody($result->serializeToJsonString());
+                                        }
                                     } else {
                                         $response->setBody($result->serializeToJsonString());
                                     }
