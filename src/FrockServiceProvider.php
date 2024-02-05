@@ -2,7 +2,6 @@
 
 namespace FrockDev\ToolsForLaravel;
 
-use Basis\Nats\Configuration;
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\Console\AddToArrayToGrpcObjects;
 use FrockDev\ToolsForLaravel\Console\CollectAttributesToCache;
@@ -13,6 +12,7 @@ use FrockDev\ToolsForLaravel\Console\PrepareProtoFiles;
 use FrockDev\ToolsForLaravel\Console\ResetNamespacesInComposerJson;
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PostInterceptorInterface;
 use FrockDev\ToolsForLaravel\InterceptorInterfaces\PreInterceptorInterface;
+use FrockDev\ToolsForLaravel\Serializer\GetSetCustomNormalizer;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Storage;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactory;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
@@ -22,7 +22,6 @@ use OpenTracing\NoopTracer;
 use OpenTracing\Tracer;
 use Prometheus\Storage\InMemory;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
-use Symfony\Component\Serializer\Normalizer\GetSetMethodNormalizer;
 use Symfony\Component\Serializer\Serializer;
 use const Jaeger\SAMPLER_TYPE_CONST;
 
@@ -90,7 +89,7 @@ class FrockServiceProvider extends ServiceProvider
 
         $this->app->singleton(Serializer::class, function() {
             $encoders = [new JsonEncoder()];
-            $normalizers = [new GetSetMethodNormalizer()];
+            $normalizers = [new GetSetCustomNormalizer()];
 
             return new Serializer($normalizers, $encoders);
         });
