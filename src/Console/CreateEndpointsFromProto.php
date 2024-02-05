@@ -421,11 +421,41 @@ class CreateEndpointsFromProto extends Command
 
     }
 
+    private function addFieldsForSerializer(string $fileName, string $namespaceName)
+    {
+        /** @var ClassType $classType */
+        $classType = ClassType::fromCode(file_get_contents($fileName));
+        $namespace =  new PhpNamespace($namespaceName);
+        $namespace->add($classType);
+
+        $classType->addProperty('fieldsToSerialize')
+            ->setType('array')
+            ->setPublic()
+            ->setValue([]);
+
+        $classType->addMethod('serializeViaSymfonySerializer')
+            ->setPublic()
+            ->setReturnType('string')
+            ->setBody('$serializer = app()->make(\Symfony\Component\Serializer\Serializer::class);
+if (!empty($this->fieldsToSerialize)) {
+    return $serializer->serialize($this, "json", [
+        \Symfony\Component\Serializer\Normalizer\AbstractNormalizer::ATTRIBUTES => $this->fieldsToSerialize
+    ]);
+} else {
+    return $serializer->serialize($this, "json");
+}
+');
+
+        $this->putNamespaceToFile($namespace, $fileName);
+    }
+
+
     private function fixTypeConstructorAttributeInComment(string $type)
     {
         $reflector = new \ReflectionClass($type);
         $this->fixRepeatedFieldTypes($reflector->getFileName(), $reflector->getNamespaceName());
-        $this->makeObjectCorrectlySerializable($reflector->getFileName(), $reflector->getNamespaceName());
+//        $this->makeObjectCorrectlySerializable($reflector->getFileName(), $reflector->getNamespaceName());
+        $this->addFieldsForSerializer($reflector->getFileName(), $reflector->getNamespaceName());
 
         $content =  file_get_contents($reflector->getFileName());
         $content = str_replace('@type', '//type', $content);
@@ -487,55 +517,54 @@ class CreateEndpointsFromProto extends Command
 
         $serializableBody = '$result = [];'.PHP_EOL;
         foreach ($classType->getMethods() as $method) {
-            if (str_starts_with($method->getName(), 'get')) {
-                if ($classType->hasProperty(lcfirst(str_replace('get', '', $method->getName())))) {
-                    $propertyName = lcfirst(str_replace('get', '', $method->getName()));
-                } else {
-                    $propertyName = ucfirst(str_replace('get', '', $method->getName()));
-                }
-                $getterDoc = $method->getComment();
-                if (str_contains($getterDoc, '[]')) {
-                    $serializableBody.= 'if (($this->'.$method->getName().'()->count())==0) {'.PHP_EOL;
-                    //need to take type from doc
-                    $matches = [];
-                    preg_match('/@return\s+(.*?)\[]/', $getterDoc, $matches);
-                    $arrayType = $matches[1];
-                    if (str_contains($arrayType, '\\')) {
-                        $serializableBody.= '   $createdArray = ['.PHP_EOL;
-                        $serializableBody.= '       new '.$arrayType.'(),'.PHP_EOL;
-                        $serializableBody.= '       new '.$arrayType.'(),'.PHP_EOL;
-                        $serializableBody.= '    ];'.PHP_EOL;
+            if (!str_starts_with($method->getName(), 'get')) continue;
+            if ($classType->hasProperty(lcfirst(str_replace('get', '', $method->getName())))) {
+                $propertyName = lcfirst(str_replace('get', '', $method->getName()));
+            } else {
+                $propertyName = ucfirst(str_replace('get', '', $method->getName()));
+            }
+            $getterDoc = $method->getComment();
+            if (str_contains($getterDoc, '[]')) {
+                $serializableBody.= 'if (($this->'.$method->getName().'()->count())==0) {'.PHP_EOL;
+                //need to take type from doc
+                $matches = [];
+                preg_match('/@return\s+(.*?)\[]/', $getterDoc, $matches);
+                $arrayType = $matches[1];
+                if (str_contains($arrayType, '\\')) {
+                    $serializableBody.= '   $createdArray = ['.PHP_EOL;
+                    $serializableBody.= '       new '.$arrayType.'(),'.PHP_EOL;
+                    $serializableBody.= '       new '.$arrayType.'(),'.PHP_EOL;
+                    $serializableBody.= '    ];'.PHP_EOL;
 //                        $reflection = new \ReflectionClass($arrayType);
 //                        $this->makeObjectCorrectlySerializable($reflection->getFileName(), $reflection->getNamespaceName());
-                        $this->fixTypeConstructorAttributeInComment($arrayType);
+                    $this->fixTypeConstructorAttributeInComment($arrayType);
 
-                    } elseif ($arrayType=='string') {
-                        $serializableBody.= '   $createdArray = ['.PHP_EOL;
-                        $serializableBody.= '       "str1",'.PHP_EOL;
-                        $serializableBody.= '       "str2"'.PHP_EOL;
-                        $serializableBody.= '    ];'.PHP_EOL;
-                    } elseif ($arrayType=='int') {
-                        $serializableBody.= '   $createdArray = ['.PHP_EOL;
-                        $serializableBody.= '       1,'.PHP_EOL;
-                        $serializableBody.= '       2,'.PHP_EOL;
-                        $serializableBody.= '    ];'.PHP_EOL;
-                    }
-                    $serializableBody.= '$this->set'.$propertyName.'($createdArray);'.PHP_EOL;
-                    $serializableBody.= '}'.PHP_EOL;
-                    $serializableBody.= 'foreach ($this->'.$method->getName().'() as $item) {'.PHP_EOL;
-                    $serializableBody.= '   if (is_object($item) && method_exists($item, \'jsonSerialize\')) {'.PHP_EOL;
-                    $serializableBody.='        $result[\''.$propertyName.'\'][] = $item->jsonSerialize();'.PHP_EOL;
-                    $serializableBody.='    } else {'.PHP_EOL;
-                    $serializableBody.='        $result[\''.$propertyName.'\'][] = $item;'.PHP_EOL;
-                    $serializableBody.='    }'.PHP_EOL;
-                    $serializableBody.= '}';
-                } else {
-                    $serializableBody.= 'if (is_object($this->'.$method->getName().'()) && method_exists($this->'.$method->getName().'(), \'jsonSerialize\')) {
-                        $result[\''.$propertyName.'\'] = $this->'.$method->getName().'()->jsonSerialize();
-                    } else {
-                        $result[\''.$propertyName.'\'] = $this->'.$method->getName().'();
-                    }';
+                } elseif ($arrayType=='string') {
+                    $serializableBody.= '   $createdArray = ['.PHP_EOL;
+                    $serializableBody.= '       "str1",'.PHP_EOL;
+                    $serializableBody.= '       "str2"'.PHP_EOL;
+                    $serializableBody.= '    ];'.PHP_EOL;
+                } elseif ($arrayType=='int') {
+                    $serializableBody.= '   $createdArray = ['.PHP_EOL;
+                    $serializableBody.= '       1,'.PHP_EOL;
+                    $serializableBody.= '       2,'.PHP_EOL;
+                    $serializableBody.= '    ];'.PHP_EOL;
                 }
+                $serializableBody.= '$this->set'.$propertyName.'($createdArray);'.PHP_EOL;
+                $serializableBody.= '}'.PHP_EOL;
+                $serializableBody.= 'foreach ($this->'.$method->getName().'() as $item) {'.PHP_EOL;
+                $serializableBody.= '   if (is_object($item) && method_exists($item, \'jsonSerialize\')) {'.PHP_EOL;
+                $serializableBody.='        $result[\''.$propertyName.'\'][] = $item->jsonSerialize();'.PHP_EOL;
+                $serializableBody.='    } else {'.PHP_EOL;
+                $serializableBody.='        $result[\''.$propertyName.'\'][] = $item;'.PHP_EOL;
+                $serializableBody.='    }'.PHP_EOL;
+                $serializableBody.= '}';
+            } else {
+                $serializableBody.= 'if (is_object($this->'.$method->getName().'()) && method_exists($this->'.$method->getName().'(), \'jsonSerialize\')) {
+                    $result[\''.$propertyName.'\'] = $this->'.$method->getName().'()->jsonSerialize();
+                } else {
+                    $result[\''.$propertyName.'\'] = $this->'.$method->getName().'();
+                }';
             }
         }
         $serializableBody .= 'return $result;';

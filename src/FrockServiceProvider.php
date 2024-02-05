@@ -21,6 +21,9 @@ use Jaeger\Config;
 use OpenTracing\NoopTracer;
 use OpenTracing\Tracer;
 use Prometheus\Storage\InMemory;
+use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\Normalizer\GetSetMethodNormalizer;
+use Symfony\Component\Serializer\Serializer;
 use const Jaeger\SAMPLER_TYPE_CONST;
 
 class FrockServiceProvider extends ServiceProvider
@@ -84,6 +87,13 @@ class FrockServiceProvider extends ServiceProvider
         $this->app->singleton(Storage::class, Storage::class);
 
         $this->app->bind(MetricFactoryInterface::class, MetricFactory::class);
+
+        $this->app->singleton(Serializer::class, function() {
+            $encoders = [new JsonEncoder()];
+            $normalizers = [new GetSetMethodNormalizer()];
+
+            return new Serializer($normalizers, $encoders);
+        });
 
         // own laravel attributes collector
         $collector = new Collector($this->app);

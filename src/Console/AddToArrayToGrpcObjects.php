@@ -12,7 +12,7 @@ class AddToArrayToGrpcObjects extends Command
 
     public function handle()
     {
-
+        return; //todo need fix
         foreach (scandir('/var/www/php/protoGenerated/') as $serviceDir) {
             if ($serviceDir === '.' || $serviceDir === '..' || !is_dir('/var/www/php/protoGenerated/' . $serviceDir)) continue;
             // это сервисы
@@ -58,7 +58,7 @@ class AddToArrayToGrpcObjects extends Command
         $classType = ClassType::fromCode(file_get_contents($fileName));
         $namespace =  new PhpNamespace($namespaceName);
         $namespace->add($classType);
-        if ($classType->hasMethod('convertToArray')) return;
+        if ($classType->hasMethod('convertToArray')) $classType->removeMethod('convertToArray');
         $serializableMethod = $classType->addMethod('convertToArray');
         $serializableMethod->setReturnType('mixed');
         $serializableMethod->setPublic();
@@ -66,59 +66,74 @@ class AddToArrayToGrpcObjects extends Command
 
         $serializableBody = '$result = [];'.PHP_EOL;
         foreach ($classType->getMethods() as $method) {
-            if (str_starts_with($method->getName(), 'get')) {
-                if ($classType->hasProperty(lcfirst(str_replace('get', '', $method->getName())))) {
-                    $propertyName = lcfirst(str_replace('get', '', $method->getName()));
-                } else {
-                    $propertyName = ucfirst(str_replace('get', '', $method->getName()));
-                }
-                $getterDoc = $method->getComment();
-                if (str_contains($getterDoc, '[]')) {
-                    $serializableBody.= 'if (($this->'.$method->getName().'()->count())==0) {'.PHP_EOL;
-                    //need to take type from doc
-                    $matches = [];
-                    preg_match('/@return\s+(.*?)\[]/', $getterDoc, $matches);
-                    $arrayType = $matches[1];
-                    if (str_contains($arrayType, '\\')) {
-                        $serializableBody.= '   $createdArray = ['.PHP_EOL;
-                        $serializableBody.= '       new '.$arrayType.'(),'.PHP_EOL;
-                        $serializableBody.= '       new '.$arrayType.'(),'.PHP_EOL;
-                        $serializableBody.= '    ];'.PHP_EOL;
+            if (!str_starts_with($method->getName(), 'get')) continue;
+
+            if ($classType->hasProperty(lcfirst(str_replace('get', '', $method->getName())))) {
+                $propertyName = lcfirst(str_replace('get', '', $method->getName()));
+            } else {
+                $propertyName = ucfirst(str_replace('get', '', $method->getName()));
+            }
+            $getterDoc = $method->getComment();
+            if (str_contains($getterDoc, '[]')) {
+                $serializableBody.= 'if (($this->'.$method->getName().'()->count())==0) {'.PHP_EOL;
+                //need to take type from doc
+                $matches = [];
+                preg_match('/@return\s+(.*?)\[]/', $getterDoc, $matches);
+                $arrayType = $matches[1];
+                if (str_contains($arrayType, '\\')) {
+                    $serializableBody.= '   $createdArray = ['.PHP_EOL;
+                    $serializableBody.= '       new '.$arrayType.'(),'.PHP_EOL;
+                    $serializableBody.= '       new '.$arrayType.'(),'.PHP_EOL;
+                    $serializableBody.= '    ];'.PHP_EOL;
 //                        $reflection = new \ReflectionClass($arrayType);
 //                        $this->makeObjectCorrectlySerializable($reflection->getFileName(), $reflection->getNamespaceName());
-                        $this->fixTypeConstructorAttributeInComment($arrayType);
+                    $this->fixTypeConstructorAttributeInComment($arrayType);
 
-                    } elseif ($arrayType=='string') {
-                        $serializableBody.= '   $createdArray = ['.PHP_EOL;
-                        $serializableBody.= '       "str1",'.PHP_EOL;
-                        $serializableBody.= '       "str2"'.PHP_EOL;
-                        $serializableBody.= '    ];'.PHP_EOL;
-                    } elseif ($arrayType=='int') {
-                        $serializableBody.= '   $createdArray = ['.PHP_EOL;
-                        $serializableBody.= '       1,'.PHP_EOL;
-                        $serializableBody.= '       2,'.PHP_EOL;
-                        $serializableBody.= '    ];'.PHP_EOL;
-                    }
-                    $serializableBody.= '$this->set'.$propertyName.'($createdArray);'.PHP_EOL;
-                    $serializableBody.= '}'.PHP_EOL;
-                    $serializableBody.= 'foreach ($this->'.$method->getName().'() as $item) {'.PHP_EOL;
-                    $serializableBody.= '   if (is_object($item) && method_exists($item, \'convertToArray\')) {'.PHP_EOL;
-                    $serializableBody.='        $result[\''.$propertyName.'\'][] = $item->convertToArray();'.PHP_EOL;
-                    $serializableBody.='    } else {'.PHP_EOL;
-                    $serializableBody.='        $result[\''.$propertyName.'\'][] = $item;'.PHP_EOL;
-                    $serializableBody.='    }'.PHP_EOL;
-                    $serializableBody.= '}';
-                } else {
-                    $serializableBody.= 'if (is_object($this->'.$method->getName().'()) && method_exists($this->'.$method->getName().'(), \'convertToArray\')) {
-                        $result[\''.$propertyName.'\'] = $this->'.$method->getName().'()->convertToArray();
-                    } else {
-                        $result[\''.$propertyName.'\'] = $this->'.$method->getName().'();
-                    }';
+                } elseif ($arrayType=='string') {
+                    $serializableBody.= '   $createdArray = ['.PHP_EOL;
+                    $serializableBody.= '       "str1",'.PHP_EOL;
+                    $serializableBody.= '       "str2"'.PHP_EOL;
+                    $serializableBody.= '    ];'.PHP_EOL;
+                } elseif ($arrayType=='int') {
+                    $serializableBody.= '   $createdArray = ['.PHP_EOL;
+                    $serializableBody.= '       1,'.PHP_EOL;
+                    $serializableBody.= '       2,'.PHP_EOL;
+                    $serializableBody.= '    ];'.PHP_EOL;
                 }
+                $serializableBody.= '$this->set'.$propertyName.'($createdArray);'.PHP_EOL;
+                $serializableBody.= '}'.PHP_EOL;
+                $serializableBody.= 'foreach ($this->'.$method->getName().'() as $item) {'.PHP_EOL;
+                $serializableBody.= '   if (is_object($item) && method_exists($item, \'convertToArray\')) {'.PHP_EOL;
+                $serializableBody.='        $result[\''.$propertyName.'\'][] = $item->convertToArray();'.PHP_EOL;
+                $serializableBody.='    } else {'.PHP_EOL;
+                $serializableBody.='        $result[\''.$propertyName.'\'][] = $item;'.PHP_EOL;
+                $serializableBody.='    }'.PHP_EOL;
+                $serializableBody.= '}';
+            } elseif (str_contains($getterDoc, '@return \\')){
+                //probably another object
+                $serializableBody.= "\n".'$result[\''.$propertyName.'\'] = $this->'.$method->getName().'()->convertToArray();';
+            } else {
+                $serializableBody.= "\n".'if (is_object($this->'.$method->getName().'()) && method_exists($this->'.$method->getName().'(), \'convertToArray\')) {
+                    $result[\''.$propertyName.'\'] = $this->'.$method->getName().'()->convertToArray();
+                } else {
+                    $result[\''.$propertyName.'\'] = $this->'.$method->getName().'();
+                }';
             }
         }
         $serializableBody .= 'return $result;';
         $serializableMethod->setBody($serializableBody);
+
+//        $classType
+//            ->addProperty('serializableFields')
+//            ->setVisibility('protected')
+//            ->setValue([]);
+//        $setSerializableFieldsMethod = $classType->addMethod('setSerializableFields');
+//        $setSerializableFieldsMethod->setReturnType('void');
+//        $setSerializableFieldsMethod->setPublic();
+//        $setSerializableFieldsMethod->addParameter('fields')->setType('array');
+//        $setSerializableFieldsMethod->setBody('$this->serializableFields = $fields;');
+
+
         $this->putNamespaceToFile($namespace, $fileName);
 
     }

@@ -54,7 +54,11 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
                         }
                         /** @var Message $response */
                         $response = $this->endpoint->__invoke($data);
-                        $result = $response->serializeToJsonString();
+                        if (method_exists($response, 'serializeViaSymfonySerializer')) {
+                            $result = $response->serializeViaSymfonySerializer();
+                        } else {
+                            $result = $response->serializeToJsonString();
+                        }
                     } catch (\Throwable $throwable) {
                         /** @var ErrorData $errorData */
                         $errorData = $this->errorHandler->handleError($throwable);

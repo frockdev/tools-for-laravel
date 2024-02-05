@@ -33,7 +33,11 @@ class NatsDriver
         if (is_string($payload)) {
             $this->client->publish($subject, $payload, $replyTo);
         } else {
-            $this->client->publish($subject, $payload->serializeToJsonString(), $replyTo);
+            if (method_exists($payload, 'serializeViaSymfonySerializer')) {
+                $this->client->publish($subject, $payload->serializeViaSymfonySerializer(), $replyTo);
+            } else {
+                $this->client->publish($subject, $payload->serializeToJsonString(), $replyTo);
+            }
         }
     }
 
