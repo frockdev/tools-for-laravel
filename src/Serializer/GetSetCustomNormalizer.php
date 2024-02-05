@@ -79,19 +79,21 @@ class GetSetCustomNormalizer extends AbstractObjectNormalizer
         $reflectionObject = new \ReflectionObject($object);
         $reflectionMethods = $reflectionObject->getMethods(\ReflectionMethod::IS_PUBLIC);
 
+        $allProperties = [];
+        foreach ($reflectionObject->getProperties() as $property) {
+            $allProperties[strtolower($property->getName())] = $property->getName();
+        }
+
         $attributes = [];
         foreach ($reflectionMethods as $method) {
             if (!$this->isGetMethod($method)) {
                 continue;
             }
-
-            $attributeName = lcfirst(substr($method->name, str_starts_with($method->name, 'is') ? 2 : 3));
-            if (!property_exists($object, $attributeName)) {
-                $attributeName = ucfirst($attributeName);
-                if (!property_exists($object,$attributeName)) {
-                    throw new \Exception('Property '.$attributeName.' not found in object '.get_class($object));
-                }
+            $lowAttribute = strtolower(substr($method->name, str_starts_with($method->name, 'is') ? 2 : 3));
+            if (!array_key_exists($lowAttribute, $allProperties)) {
+                throw new \Exception('Serialization. Attribute not found: '.$lowAttribute);
             }
+            $attributeName = $allProperties[$lowAttribute];
 
             if ($this->isAllowedAttribute($object, $attributeName, $format, $context)) {
                 $attributes[] = $attributeName;
