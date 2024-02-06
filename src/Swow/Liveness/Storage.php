@@ -14,7 +14,7 @@ class Storage
 
     private array $modes = [];
 
-    public function setLiveness(string $componentName, string $componentState, string $componentMessage, string $mode)
+    public function setLiveness(string $componentName, int $componentState, string $componentMessage, string $mode)
     {
         if ($mode===Liveness::MODE_1_SEC) {
             if (isset($this->lastTimes[$componentName]) && time()-$this->lastTimes[$componentName]>=1) {

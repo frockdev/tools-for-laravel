@@ -13,7 +13,7 @@ class Liveness
 
     public const MODE_EACH_10_TRY = 'each-10-try';
 
-    public static function setLiveness(string $componentName, string $componentState, string $componentMessage, string $mode = self::MODE_EACH): void
+    public static function setLiveness(string $componentName, int $componentState, string $componentMessage, string $mode = self::MODE_EACH): void
     {
         /** @var Storage $storage */
         $storage = app()->make(Storage::class);

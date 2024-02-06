@@ -4,6 +4,7 @@ namespace FrockDev\ToolsForLaravel\Support;
 
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use FrockDev\ToolsForLaravel\Swow\ProcessManagement\CustomProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\HttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\LivenessProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsJetstreamProcessManager;
@@ -49,8 +50,15 @@ class FrockLaravelStartSupport
             $this->runRpcHttpService();
 //            $this->runHttpService();
         }
+        $this->runCustomProcesses();
         //latest
         $this->loadLivenessService();
+    }
+
+    private function runCustomProcesses() {
+        /** @var CustomProcessManager $customProcessManager */
+        $customProcessManager = app()->make(CustomProcessManager::class);
+        $customProcessManager->registerProcesses();
     }
 
     public function runLoggerService() {
