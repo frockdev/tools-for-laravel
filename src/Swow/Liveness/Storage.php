@@ -17,11 +17,11 @@ class Storage
     public function setLiveness(string $componentName, int $componentState, string $componentMessage, string $mode)
     {
         if ($mode===Liveness::MODE_1_SEC) {
-            if (isset($this->lastTimes[$componentName]) && time()-$this->lastTimes[$componentName]>=1) {
+            if (isset($this->lastTimes[$componentName]) && time()-$this->lastTimes[$componentName]===0) {
                 return;
             }
         } elseif ($mode===Liveness::MODE_5_SEC) {
-            if (isset($this->lastTimes[$componentName]) && time()-$this->lastTimes[$componentName]>=5) {
+            if (isset($this->lastTimes[$componentName]) && time()-$this->lastTimes[$componentName]<=5) {
                 return;
             }
         } elseif ($mode===Liveness::MODE_ONCE) {
@@ -29,11 +29,13 @@ class Storage
                 return;
             }
         } elseif ($mode===Liveness::MODE_EACH_5_TRY) {
-            if (isset($this->lastTries[$componentName]) && $this->lastTries[$componentName]>=5) {
+            if (isset($this->lastTries[$componentName]) && $this->lastTries[$componentName]<=5) {
+                $this->lastTries[$componentName]++;
                 return;
             }
         } elseif ($mode===Liveness::MODE_EACH_10_TRY) {
-            if (isset($this->lastTries[$componentName]) && $this->lastTries[$componentName]>=10) {
+            if (isset($this->lastTries[$componentName]) && $this->lastTries[$componentName]<=10) {
+                $this->lastTries[$componentName]++;
                 return;
             }
         }
@@ -73,6 +75,24 @@ class Storage
             );
         }
         return $text;
+    }
+
+    public function renderReportAsAHtmlTable() {
+        $report = $this->getReportData();
+        $html = '<table border="1">';
+        $html .= '<tr><th>Component</th><th>State</th><th>Message</th><th>Time</th><th>Mode</th></tr>';
+        foreach ($report as $componentName => $data) {
+            $html .= sprintf(
+                "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
+                $componentName,
+                $data['state'],
+                $data['message'],
+                date('Y-m-d H:i:s', $data['time']),
+                $data['mode']
+            );
+        }
+        $html .= '</table>';
+        return $html;
     }
 
     /**
