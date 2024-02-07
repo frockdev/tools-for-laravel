@@ -17,6 +17,7 @@ use Basis\Nats\Message\Unsubscribe;
 use Closure;
 use Exception;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
 use Illuminate\Support\Facades\Log;
 use Swow\Channel;
 use Swow\Socket;
@@ -127,6 +128,7 @@ class NewNatsClient
             'subject' => $subject,
             'group' => $group,
         ]));
+        Log::debug('Subscribed '.$subject.' with sid '.$sid);
 
         $this->subscriptions[] = [
             'name' => $subject,
@@ -140,6 +142,7 @@ class NewNatsClient
             if ($subscription['name'] == $name) {
                 unset($this->subscriptions[$i]);
                 $this->send(new Unsubscribe(['sid' => $subscription['sid']]));
+                Log::debug('Unsubscribed '.$name.' with sid '.$subscription['sid']);
                 unset($this->handlers[$subscription['sid']]);
             }
         }
@@ -149,11 +152,13 @@ class NewNatsClient
 
     public function publish(string $name, mixed $payload, ?string $replyTo = null): void
     {
+        $payloadObj = Payload::parse($payload);
         $this->send(new Publish([
-            'payload' => Payload::parse($payload),
+            'payload' => $payloadObj,
             'replyTo' => $replyTo,
             'subject' => $name,
         ]));
+        Log::debug('Published to '.$name.' '.$payloadObj->render());
     }
 
     protected function connect() {
@@ -172,13 +177,13 @@ class NewNatsClient
         $this->connect = new Connect($this->configuration->getOptions());
 
         $this->send($this->connect);
+        Log::debug('Connected to NATS.');
     }
 
     protected function send(Prototype $message): void
     {
         $this->connect();
         $line = $message->render() . "\r\n";
-        Log::debug('send ' . $line);
 
         try {
             $this->socket->send($line);
@@ -214,11 +219,13 @@ class NewNatsClient
     public function ping(): void
     {
         $this->send(new Ping([]));
+        Liveness::setLiveness($this->clientName, 200, 'Ping sent', Liveness::MODE_5_SEC);
     }
 
     public function pong(): void
     {
         $this->send(new Pong([]));
+        Liveness::setLiveness($this->clientName, 200, 'Pong received', Liveness::MODE_5_SEC);
     }
 
     public function startReceiving(): void {
@@ -231,6 +238,7 @@ class NewNatsClient
                     return;
                 }
             }
+            Liveness::setLiveness($this->clientName, 200, 'Receiving', Liveness::MODE_5_SEC);
 
             $this->connect();
 
@@ -243,15 +251,12 @@ class NewNatsClient
 
             switch (trim($line)) {
                 case 'PING':
-                    Log::debug('received ' . $line);
                     $this->pong();
                     continue 2;
                 case 'PONG':
-                    Log::debug('received ' . $line);
                     continue 2;
 
                 case '+OK':
-                    Log::debug('received ' . $line);
                     continue 2;
             }
 
@@ -278,10 +283,12 @@ class NewNatsClient
                     }
                     $result = $this->handlers[$message->sid]($message->payload);
                     if ($message->replyTo) {
+                        $payloadObj = Payload::parse($result);
                         $this->send(new Publish([
                             'subject' => $message->replyTo,
-                            'payload' => Payload::parse($result),
+                            'payload' => $payloadObj,
                         ]));
+                        Log::debug('Replied to ' . $message->replyTo . ' with ' . $payloadObj->render());
                     }
                     break;
             }
