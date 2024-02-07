@@ -4,6 +4,7 @@ namespace FrockDev\ToolsForLaravel\Swow;
 
 use Illuminate\Foundation\Application;
 use Swow\Channel;
+use Swow\Coroutine;
 
 class ContextStorage
 {
@@ -51,12 +52,36 @@ class ContextStorage
         $coroutineId = \Swow\Coroutine::getCurrent()->getId();
         unset(self::$storage[$coroutineId]);
         unset(self::$storage['containers'][$coroutineId]);
+        unset(self::$storage['routineNames'][$coroutineId]);
     }
 
     public static function setApplication(\Illuminate\Contracts\Container\Container|Application $application): void
     {
         $coroutineId = \Swow\Coroutine::getCurrent()->getId();
+        if (!self::getCurrentRoutineName()) {
+            throw new \Exception('Routine name is not set');
+        }
+        self::$storage['routineNames'][$coroutineId] = self::getCurrentRoutineName();
         self::$storage['containers'][$coroutineId] = $application;
+    }
+
+    public static function setCurrentRoutineName(string $name): void
+    {
+        $coroutineId = \Swow\Coroutine::getCurrent()->getId();
+        self::$storage['routineNames'][$coroutineId] = $name;
+    }
+
+    public static function getCurrentRoutineName() {
+        $coroutineId = \Swow\Coroutine::getCurrent()->getId();
+        return self::$storage['routineNames'][$coroutineId] ?? null;
+    }
+
+    public static function getMainApplication(): ?Application
+    {
+        $coroutineId = Coroutine::getMain()->getId();
+        $mainApp = self::$storage['containers'][$coroutineId];
+        if (!$mainApp) throw new \Exception('Main application not found');
+        return $mainApp;
     }
 
     public static function getApplication(): ?Application
