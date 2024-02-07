@@ -44,12 +44,12 @@ class RpcHttpProcess extends AbstractProcess
                                     ContextStorage::set('X-Trace-Id', $request->getHeader('X-Trace-Id')[0]??uuid_create());
                                     if (!array_key_exists($requestedUri, $routes)) {
                                         $connection->error(\Swow\Http\Status::NOT_FOUND, 'Not Found', close: true);
-                                        ContextStorage::clearStorage();
+
                                         break;
                                     }
                                     if ($request->getMethod()!=$routes[$requestedUri]['method']) {
                                         $connection->error(\Swow\Http\Status::NOT_ALLOWED, 'Method Not Allowed', close: true);
-                                        ContextStorage::clearStorage();
+
                                         break;
                                     }
                                     $endpoint = $routes[$requestedUri]['endpoint'];
@@ -63,7 +63,7 @@ class RpcHttpProcess extends AbstractProcess
                                     } elseif ($request->getMethod()==='POST') {
                                         if (!isset($convertedHeaders['Content-Type'])) {
                                             $connection->error(\Swow\Http\Status::BAD_REQUEST, 'Bad Request. Specify Content-Type: application/json', close: true);
-                                            ContextStorage::clearStorage();
+
                                             break;
                                         }
                                         /** @var Message $requestObject */
@@ -71,7 +71,7 @@ class RpcHttpProcess extends AbstractProcess
                                         $requestObject->mergeFromJsonString($request->getBody());
                                     } else {
                                         $connection->error(\Swow\Http\Status::NOT_ALLOWED, 'Method Not Allowed', close: true);
-                                        ContextStorage::clearStorage();
+
                                         break;
                                     }
 
@@ -92,11 +92,11 @@ class RpcHttpProcess extends AbstractProcess
                                         $response->setBody($result->serializeToJsonString());
                                     }
                                     $connection->sendHttpResponse($response);
-                                    ContextStorage::clearStorage();
+
                                     break;
                                 } catch (ProtocolException $exception) {
                                     $connection->error($exception->getCode(), $exception->getMessage(), close: true);
-                                    ContextStorage::clearStorage();
+
                                     break;
                                 } catch (\Throwable $e) {
                                     $errorInfo = $errorHandler->handleError($e);
@@ -106,7 +106,7 @@ class RpcHttpProcess extends AbstractProcess
                                     $response->addHeader('X-Trace-Id', ContextStorage::get('X-Trace-Id'));
                                     $response->setBody(json_encode($errorInfo->errorData));
                                     $connection->sendHttpResponse($response);
-                                    ContextStorage::clearStorage();
+
                                     break;
                                 }
                             }
