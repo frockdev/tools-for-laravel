@@ -43,7 +43,8 @@ class LivenessProcess extends AbstractProcess
                                         case '/liveness':
                                             $response = new Response();
                                             $response->setStatus($storage->calculateCommonCode());
-                                            $response->setBody($storage->renderReportAsAText());
+                                            $response->addHeader('Content-Type', 'text/html');
+                                            $response->setBody($storage->renderReportAsAHtmlTable());
                                             $connection->sendHttpResponse($response);
                                             break;
                                         case '/':
