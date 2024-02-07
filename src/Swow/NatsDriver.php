@@ -98,7 +98,6 @@ class NatsDriver
                 $result->mergeFromJsonString($payload->body);
                 $response = $callback($result, $payload);
                 Log::info('NatsDriver: response from callback: ' . json_encode($response));
-                ContextStorage::clearStorage();
                 return $response;
             } catch (\Google\Protobuf\Internal\GPBDecodeException $exception) {
                 Log::error('Failed to decode message at ' . $subject . ': ' . $exception->getMessage(),
@@ -155,8 +154,6 @@ class NatsDriver
                 ]);
                 ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode()>0?$exception->getCode():700);
                 throw $exception;
-            } finally {
-                ContextStorage::clearStorage();
             }
 
         };
@@ -165,9 +162,7 @@ class NatsDriver
             while(true) {
                 $componentName = 'nats_consumer_' . $streamName . '_' . $subject;
                 try {
-                    Liveness::setLiveness($componentName, 200, 'started');
                     $this->client->startReceiving();
-                    Liveness::setLiveness($componentName, 200, 'stopped(ok)');
                 } catch (Throwable $exception) {
                     Liveness::setLiveness($componentName, 500, 'fault. '.$exception->getMessage());
                     Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
