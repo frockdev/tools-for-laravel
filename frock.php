@@ -6,6 +6,15 @@ use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\Processes\ProcessesRegistry;
 use Swow\Channel;
 
+function app($abstract = null, array $parameters = [])
+{
+    if (is_null($abstract)) {
+        return \FrockDev\ToolsForLaravel\Application\Application::getInstance();
+    }
+
+    return \FrockDev\ToolsForLaravel\Application\Application::getInstance()->make($abstract, $parameters);
+}
+
 require_once __DIR__ . '/vendor/autoload.php';
 
 $appModeResolver = new AppModeResolver();
@@ -15,7 +24,7 @@ $startSupport = new FrockLaravelStartSupport(
 
 $exitControlChannel = new Channel(1);
 ContextStorage::setSystemChannel('exitChannel', $exitControlChannel);
-
+ContextStorage::set('processName', 'main');
 $laravelApp = $startSupport->initializeLaravel(__DIR__);
 
 $startSupport->loadServices(); //load services depends on mode
