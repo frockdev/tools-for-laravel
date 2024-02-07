@@ -2,13 +2,11 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
 use Prometheus\CollectorRegistry;
 use Prometheus\RenderTextFormat;
-use Swow\Buffer;
-use Swow\Coroutine;
 use Swow\CoroutineException;
 use Swow\Errno;
-use Swow\Http\Parser;
 use Swow\Http\Protocol\ProtocolException;
 use Swow\Psr7\Server\Server;
 use Swow\Socket;
@@ -37,12 +35,12 @@ class PrometheusHttpProcess extends AbstractProcess
 
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
-        Coroutine::run(function (Server $server, CollectorRegistry $registry) {
+        CoroutineManager::runSafe(function (Server $server, CollectorRegistry $registry) {
             while (true) {
                 try {
                     $connection = null;
                     $connection = $server->acceptConnection();
-                    Coroutine::run(static function () use ($connection, $registry): void {
+                    CoroutineManager::runSafe(static function () use ($connection, $registry): void {
                         try {
                             while (true) {
                                 $request = null;
@@ -72,7 +70,7 @@ class PrometheusHttpProcess extends AbstractProcess
                         } finally {
                             $connection->close();
                         }
-                    });
+                    }, 'prometheusHandler');
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
                         sleep(1);
@@ -81,6 +79,6 @@ class PrometheusHttpProcess extends AbstractProcess
                     }
                 }
             }
-        }, $server, $this->registry);
+        }, $this->name, $server, $this->registry);
     }
 }

@@ -2,8 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
-use FrockDev\ToolsForLaravel\Swow\ContextStorage;
-use Swow\Coroutine;
+use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
 
 abstract class AbstractProcess
 {
@@ -21,10 +20,9 @@ abstract class AbstractProcess
 
     public function runProcessInCoroutine(): void
     {
-        Coroutine::run(function () {
-            ContextStorage::set('processName', $this->getName());
+        CoroutineManager::runSafe(function () {
             $this->run();
-        });
+        }, $this->getName());
     }
 
     abstract protected function run(): void;

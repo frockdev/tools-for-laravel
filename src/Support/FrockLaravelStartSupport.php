@@ -2,8 +2,9 @@
 
 namespace FrockDev\ToolsForLaravel\Support;
 
-use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
+use FrockDev\ToolsForLaravel\Application\Application;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\CustomProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\HttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\LivenessProcessManager;
@@ -16,17 +17,61 @@ use FrockDev\ToolsForLaravel\Swow\ProcessManagement\SystemMetricsProcessManager;
 class FrockLaravelStartSupport
 {
     private AppModeResolver $appModeResolver;
-    private Collector $collector;
 
     public function __construct(AppModeResolver $appModeResolver)
     {
         $this->appModeResolver = $appModeResolver;
-        $this->collector = app()->make(Collector::class);
+    }
+
+    private function bootstrapApplication(): Application {
+        $app = new Application(
+            '/var/www/php'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Bind Important Interfaces
+        |--------------------------------------------------------------------------
+        |
+        | Next, we need to bind some important interfaces into the container so
+        | we will be able to resolve them when needed. The kernels serve the
+        | incoming requests to this application from both the web and CLI.
+        |
+        */
+
+        $app->singleton(
+            \Illuminate\Contracts\Http\Kernel::class,
+            \App\Http\Kernel::class
+        );
+
+        $app->singleton(
+            \Illuminate\Contracts\Console\Kernel::class,
+            \App\Console\Kernel::class
+        );
+
+        $app->singleton(
+            \Illuminate\Contracts\Debug\ExceptionHandler::class,
+            \App\Exceptions\Handler::class
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Return The Application
+        |--------------------------------------------------------------------------
+        |
+        | This script returns the application instance. The instance is given to
+        | the calling script so we can separate the building of the instances
+        | from the actual running of the application and sending responses.
+        |
+        */
+
+        return $app;
+
     }
 
     public function initializeLaravel(string $basePath): \Illuminate\Foundation\Application {
-        /** @var \Illuminate\Foundation\Application $app */
-        $app = require_once $basePath.'/bootstrap/app.php';
+
+        $app = $this->bootstrapApplication();
         $app->bootstrapWith([
             \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
             \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
@@ -48,7 +93,7 @@ class FrockLaravelStartSupport
         }
         if ($this->appModeResolver->isHttpAllowedToRun()) {
             $this->runRpcHttpService();
-//            $this->runHttpService();
+            $this->runHttpService();
         }
         $this->runCustomProcesses();
         //latest
@@ -71,7 +116,7 @@ class FrockLaravelStartSupport
         config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER',\Monolog\Formatter\JsonFormatter::class)]);
         config(['logging.default'=>'custom']);
 
-        \Swow\Coroutine::run(function() {
+        CoroutineManager::runSafe(function() {
             $channel = new \Swow\Channel(1000);
             ContextStorage::setSystemChannel('log', $channel);
 
@@ -85,7 +130,7 @@ class FrockLaravelStartSupport
                         $message->context
                     );
             }
-        });
+        }, 'main-logger');
     }
 
     private function loadNatsService()

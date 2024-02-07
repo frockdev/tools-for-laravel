@@ -9,12 +9,13 @@ use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Swow\Coroutine;
 use Throwable;
 
 class NatsDriver
 {
     private NewNatsClient $client;
+
+    private string $name;
 
     public function __construct(string $name)
     {
@@ -26,6 +27,7 @@ class NatsDriver
             'timeout'=>(float)config('nats.timeout', (float)env('NATS_TIMEOUT', 1)),
         ]);
         $this->client = new NewNatsClient($config, $name);
+        $this->name = $name;
     }
 
     public function publish(string $subject, string|Message $payload, $replyTo = null): void
@@ -115,7 +117,7 @@ class NatsDriver
         } catch (Throwable $exception) {
             throw $exception;
         }
-        Coroutine::run(function () {
+        CoroutineManager::runSafe(function () {
             while(true) {
                 try {
                     $this->client->startReceiving();
@@ -126,7 +128,7 @@ class NatsDriver
                     throw $exception;
                 }
             }
-        });
+        }, $this->name.'_nats_receiving');
     }
 
     public function subscribeToStream(string $subject, string $streamName, Closure $callback, string $deserializeTo, ?float $period = null): void
@@ -159,7 +161,7 @@ class NatsDriver
 
         };
         $firstStart = true;
-        Coroutine::run(function () use ($subject, $streamName) {
+        CoroutineManager::runSafe(function () use ($subject, $streamName) {
             while(true) {
                 $componentName = 'nats_consumer_' . $streamName . '_' . $subject;
                 try {
@@ -174,7 +176,7 @@ class NatsDriver
                     throw $exception;
                 }
             }
-        });
+        }, $this->name.'_nats_stream_receiving');
         while (true) {
             try {
                 $jetStream = $this->client->getApi()->getStream($streamName);
@@ -211,14 +213,4 @@ class NatsDriver
             }
         }
     }
-
-//    public function process(int $timeout = 10)
-//    {
-//        try {
-//            $this->client->process($timeout);
-//        } catch (Throwable $exception) {
-//            throw $exception;
-//        }
-//    }
-
 }

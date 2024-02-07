@@ -2,9 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
-use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Http\Response;
-use Swow\Coroutine;
 use Swow\CoroutineException;
 use Swow\Errno;
 use Swow\Http\Protocol\ProtocolException;
@@ -30,12 +28,12 @@ class HttpProcess extends AbstractProcess
 
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
-        Coroutine::run(function (Server $server) {
+        \FrockDev\ToolsForLaravel\Swow\CoroutineManager::runSafe(function (Server $server) {
             while (true) {
                 try {
                     $connection = null;
                     $connection = $server->acceptConnection();
-                    Coroutine::run(static function () use ($connection): void {
+                    \FrockDev\ToolsForLaravel\Swow\CoroutineManager::runSafe(static function () use ($connection): void {
                         try {
                             $request = $connection->recvHttpRequest();
                             $kernel = app()->make(Kernel::class);
@@ -64,14 +62,12 @@ class HttpProcess extends AbstractProcess
                             $swowResponse->setProtocolVersion($response->getProtocolVersion());
 
                             $connection->sendHttpResponse($swowResponse);
-                            ContextStorage::clearStorage();
 
                         } catch (ProtocolException $exception) {
                             $connection->error($exception->getCode(), $exception->getMessage(), close: true);
                         }
-                        ContextStorage::clearStorage();
                         $connection->close();
-                    });
+                    }, 'http_consumer');
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
                         sleep(1);
@@ -80,6 +76,6 @@ class HttpProcess extends AbstractProcess
                     }
                 }
             }
-        }, $server);
+        }, $this->name.'_server', $server);
     }
 }

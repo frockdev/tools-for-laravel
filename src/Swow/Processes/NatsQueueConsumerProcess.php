@@ -5,13 +5,12 @@ namespace FrockDev\ToolsForLaravel\Swow\Processes;
 use Basis\Nats\Message\Payload;
 use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
 use FrockDev\ToolsForLaravel\ExceptionHandlers\Data\ErrorData;
-use FrockDev\ToolsForLaravel\NatsJetstream\NatsJetstreamGrpcDriver;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
 use Google\Protobuf\Internal\Message;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Swow\Coroutine;
 
 class NatsQueueConsumerProcess extends AbstractProcess
 {
@@ -42,7 +41,7 @@ class NatsQueueConsumerProcess extends AbstractProcess
             function (Message $data, ?Payload $payload = null) {
                 $resultChannel = new \Swow\Channel(1);
                 $traceId = ContextStorage::get('X-Trace-Id');
-                Coroutine::run(function (Message $data, ?Payload $payload = null) use ($resultChannel, $traceId) {
+                CoroutineManager::runSafe(function (Message $data, ?Payload $payload = null) use ($resultChannel, $traceId) {
                     try {
                         ContextStorage::set('X-Trace-Id', $traceId);
                         if (!is_null($payload)) {
@@ -72,7 +71,7 @@ class NatsQueueConsumerProcess extends AbstractProcess
                         $resultChannel->push($result);
                         ContextStorage::clearStorage();
                     }
-                }, $data, $payload);
+                }, $this->subject.'_'.$this->queueName.'_handler', $data, $payload);
                 $result = $resultChannel->pop(); //todo i think we need add timeout here
                 unset ($resultChannel);
                 return $result;

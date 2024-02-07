@@ -2,11 +2,15 @@
 
 namespace FrockDev\ToolsForLaravel\Swow;
 
+use Illuminate\Foundation\Application;
 use Swow\Channel;
 
 class ContextStorage
 {
-    static private array $storage = [];
+    static private array $storage = [
+        'systemChannels' => [],
+        'containers' => [],
+    ];
 
     public static function setSystemChannel(string $name, Channel $channel): void
     {
@@ -46,5 +50,28 @@ class ContextStorage
     {
         $coroutineId = \Swow\Coroutine::getCurrent()->getId();
         unset(self::$storage[$coroutineId]);
+        unset(self::$storage['containers'][$coroutineId]);
+    }
+
+    public static function setApplication(\Illuminate\Contracts\Container\Container|Application $application): void
+    {
+        $coroutineId = \Swow\Coroutine::getCurrent()->getId();
+        self::$storage['containers'][$coroutineId] = $application;
+    }
+
+    public static function getApplication(): ?Application
+    {
+        $coroutineId = \Swow\Coroutine::getCurrent()->getId();
+        return self::$storage['containers'][$coroutineId] ?? null;
+    }
+
+    public static function getStorageCountForMetric(): int
+    {
+        return count(self::$storage)-2;
+    }
+
+    public static function getContainersCountForMetric(): int
+    {
+        return count(self::$storage['containers']);
     }
 }

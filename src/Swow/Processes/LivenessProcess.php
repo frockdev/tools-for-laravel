@@ -2,8 +2,8 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Storage;
-use Swow\Coroutine;
 use Swow\CoroutineException;
 use Swow\Errno;
 use Swow\Http\Protocol\ProtocolException;
@@ -28,12 +28,12 @@ class LivenessProcess extends AbstractProcess
 
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
-        Coroutine::run(function (Server $server, Storage $storage) {
+        CoroutineManager::runSafe(function (Server $server, Storage $storage) {
             while (true) {
                 try {
                     $connection = null;
                     $connection = $server->acceptConnection();
-                    Coroutine::run(static function () use ($connection, $storage): void {
+                    CoroutineManager::runSafe(static function () use ($connection, $storage): void {
                         try {
                             while (true) {
                                 $request = null;
@@ -65,7 +65,7 @@ class LivenessProcess extends AbstractProcess
                         } finally {
                             $connection->close();
                         }
-                    });
+                    }, 'livenessHandler');
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
                         sleep(1);
@@ -74,6 +74,6 @@ class LivenessProcess extends AbstractProcess
                     }
                 }
             }
-        }, $server, $this->storage);
+        }, $this->name, $server, $this->storage);
     }
 }
