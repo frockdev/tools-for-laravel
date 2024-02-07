@@ -175,7 +175,7 @@ class NatsDriver
         while (true) {
             try {
                 $jetStream = $this->client->getApi()->getStream($streamName);
-                $consumerName = $streamName . '-' . Str::random() . '-' . config('app.name') . '-' . config('app.env') . '-' . env('NATS_SPECIAL_POSTFIX', 'default');
+                $consumerName = $streamName . '-' . Str::random(4) . '-' . env('HOSTNAME') . '-' . config('app.env');
                 $consumer = $jetStream->getConsumer($consumerName);
                 $consumer->getConfiguration()->setSubjectFilter($subject);
                 if (!is_null($period)) {
