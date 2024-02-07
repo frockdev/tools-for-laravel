@@ -20,7 +20,7 @@ abstract class AbstractProcess
 
     public function runProcessInCoroutine(): void
     {
-        CoroutineManager::runSafe(function () {
+        CoroutineManager::runSafeFromMain(function () {
             $this->run();
         }, $this->getName());
     }
