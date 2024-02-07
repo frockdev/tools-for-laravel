@@ -69,7 +69,6 @@ class NatsQueueConsumerProcess extends AbstractProcess
                         $result = json_encode($errorData->errorData);
                     } finally {
                         $resultChannel->push($result);
-                        ContextStorage::clearStorage();
                     }
                 }, $this->subject.'_'.$this->queueName.'_handler', $data, $payload);
                 $result = $resultChannel->pop(); //todo i think we need add timeout here
