@@ -3,7 +3,7 @@
 namespace FrockDev\ToolsForLaravel\AnnotationsCollector;
 
 use FrockDev\ToolsForLaravel\AnnotationsObjectModels\Annotation;
-use FrockDev\ToolsForLaravel\Application\Application;
+use Illuminate\Foundation\Application;
 use Nette\PhpGenerator\ClassType;
 
 class Collector
