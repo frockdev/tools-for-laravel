@@ -3,6 +3,7 @@
 namespace FrockDev\ToolsForLaravel\Support;
 
 use FrockDev\ToolsForLaravel\Application\Application;
+use FrockDev\ToolsForLaravel\ExceptionHandlers\UniversalErrorHandler;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\CustomProcessManager;
@@ -13,6 +14,7 @@ use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsQueueProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\RpcHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\SystemMetricsProcessManager;
+use Illuminate\Container\Container;
 
 class FrockLaravelStartSupport
 {
@@ -23,10 +25,27 @@ class FrockLaravelStartSupport
         $this->appModeResolver = $appModeResolver;
     }
 
-    private function bootstrapApplication(): Application {
-        $app = new Application(
+    private function bootstrapApplication(): \Illuminate\Foundation\Application {
+
+        $safeApp = new Application(
+            '/var/www/php',
+            true
+        );
+        $safeApp->disableSafeContainerInitializationMode();
+
+
+        $unsafeApp = new \Illuminate\Foundation\Application(
             '/var/www/php'
         );
+
+
+        \Illuminate\Foundation\Application::setInstance($safeApp);
+
+        Container::setInstance($safeApp);
+
+
+        ContextStorage::setCurrentRoutineName('main');
+        ContextStorage::setApplication($unsafeApp);
 
         /*
         |--------------------------------------------------------------------------
@@ -39,19 +58,19 @@ class FrockLaravelStartSupport
         |
         */
 
-        $app->singleton(
+        $unsafeApp->singleton(
             \Illuminate\Contracts\Http\Kernel::class,
             \App\Http\Kernel::class
         );
 
-        $app->singleton(
+        $unsafeApp->singleton(
             \Illuminate\Contracts\Console\Kernel::class,
             \App\Console\Kernel::class
         );
 
-        $app->singleton(
+        $unsafeApp->singleton(
             \Illuminate\Contracts\Debug\ExceptionHandler::class,
-            \App\Exceptions\Handler::class
+            UniversalErrorHandler::class
         );
 
         /*
@@ -65,11 +84,12 @@ class FrockLaravelStartSupport
         |
         */
 
-        return $app;
+        return $unsafeApp;
 
     }
 
-    public function initializeLaravel(string $basePath): \Illuminate\Foundation\Application {
+    public function initializeLaravel(): \Illuminate\Foundation\Application
+    {
 
         $app = $this->bootstrapApplication();
         $app->bootstrapWith([
@@ -81,7 +101,12 @@ class FrockLaravelStartSupport
             \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
             \Illuminate\Foundation\Bootstrap\BootProviders::class,
         ]);
+
         return $app;
+    }
+
+    public function loadServicesForArtisan() {
+        $this->runLoggerService();
     }
 
     public function loadServices() {
