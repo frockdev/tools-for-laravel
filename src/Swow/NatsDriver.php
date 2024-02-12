@@ -3,12 +3,14 @@
 namespace FrockDev\ToolsForLaravel\Swow;
 
 use Basis\Nats\Message\Payload;
-use Closure;
-use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
 use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
-use Google\Protobuf\Internal\Message;
+use FrockDev\ToolsForLaravel\Transport\AbstractMessage;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use Swow\Channel;
 use Throwable;
 
 class NatsDriver
@@ -30,92 +32,7 @@ class NatsDriver
         $this->name = $name;
     }
 
-    public function publish(string $subject, string|Message $payload, $replyTo = null): void
-    {
-        if (is_string($payload)) {
-            $this->client->publish($subject, $payload, $replyTo);
-        } else {
-            if (method_exists($payload, 'serializeViaSymfonySerializer')) {
-                $this->client->publish($subject, $payload->serializeViaSymfonySerializer(), $replyTo);
-            } else {
-                $this->client->publish($subject, $payload->serializeToJsonString(), $replyTo);
-            }
-        }
-    }
-
-    /**
-     * @param string $subject
-     * @param string|Message $payload
-     * @param $replyTo
-     * @return string
-     * @deprecated
-     * @internal
-     * @todo this method should be tested
-     */
-    public function publishSync(string $subject, string|Message $payload, $replyTo = null): string {
-        if (is_string($payload)) {
-            return $this->client->dispatch($subject, $payload, $replyTo);
-        } else {
-            return $this->client->dispatch($subject, $payload->serializeToJsonString(), $replyTo);
-        }
-    }
-
-    /**
-     * @param Payload $payload
-     * @return void
-     * @deprecated
-     */
-    private function logMessageFromSubscribe(Payload $payload) {
-        $headers = '';
-        foreach ($payload->headers as $key=>$value) {
-            $headers .= $key . ': ' . $value . ", ";
-        }
-        Log::debug('NatsDriver: received message at ' . $payload->subject . ', headers: ('. $headers . '),  body:' . $payload->body);
-    }
-
-    /**
-     * @param Payload $payload
-     * @param string $streamName
-     * @return void
-     * @deprecated
-     */
-    private function logMessageFromSubscribeToStream(Payload $payload, string $streamName) {
-        $headers = '';
-        foreach ($payload->headers as $key=>$value) {
-            $headers .= $key . ': ' . $value . ", ";
-        }
-        Log::debug('NatsDriver: received message at ' . $payload->subject . ' and stream: '.$streamName.', headers: ('. $headers . '),  body:' . $payload->body);
-    }
-
-    public function subscribe(string $subject, string $queue, Closure $callback, string $deserializeTo): void
-    {
-        $wrappedFunction = function (Payload $payload) use ($callback, $deserializeTo, $subject) {
-            try {
-                ContextStorage::set('X-Trace-Id', $payload->getHeader('X-Trace-Id') ?? uuid_create());
-                $this->logMessageFromSubscribe($payload);
-                /** @var Message $result */
-                $result = new $deserializeTo();
-                $result->mergeFromJsonString($payload->body);
-                $response = $callback($result, $payload);
-                Log::info('NatsDriver: response from callback: ' . json_encode($response));
-                return $response;
-            } catch (\Google\Protobuf\Internal\GPBDecodeException $exception) {
-                Log::error('Failed to decode message at ' . $subject . ': ' . $exception->getMessage(),
-                    [
-                        'payloadBody'=>$payload->body
-                    ]);
-                throw $exception;
-            }
-        };
-        try {
-            if ($queue === '') {
-                $this->client->subscribe($subject, $wrappedFunction);
-            } else {
-                $this->client->subscribeQueue($subject, $queue, $wrappedFunction);
-            }
-        } catch (Throwable $exception) {
-            throw $exception;
-        }
+    public function runReceiving(string $namePostfix='') {
         CoroutineManager::runSafe(function () {
             while(true) {
                 try {
@@ -127,51 +44,126 @@ class NatsDriver
                     throw $exception;
                 }
             }
-        }, $this->name.'_nats_receiving');
+        }, $this->name.'_nats_receiving_'.$namePostfix);
     }
 
-    public function subscribeToStream(string $subject, string $streamName, Closure $callback, string $deserializeTo, ?float $period = null): void
+    public function publish(string $subject, string|AbstractMessage $payload, $replyTo = null): void
     {
-        $wrappedFunction = function (Payload $payload) use ($callback, $deserializeTo, $subject, $streamName) {
-            ContextStorage::set('X-Trace-Id', $payload->getHeader('X-Trace-Id') ?? uuid_create());
-            $this->logMessageFromSubscribeToStream($payload, $streamName);
-            try {
-                /** @var Message $input */
-                $input = new $deserializeTo();
-                $input->mergeFromJsonString($payload->body);
-                $response = $callback($input, $payload);
-                Log::info('NatsDriver: response from callback: ' . json_encode($response));
-                return $response;
-            } catch (\Google\Protobuf\Internal\GPBDecodeException $exception) {
-                Log::error('Failed to decode message at ' . $subject . ', ' . $streamName . ': ' . $exception->getMessage(),
-                    [
-                        'payloadBody'=>$payload->body
-                    ]);
-                throw $exception;
-            } catch (Throwable $exception) {
-                Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
-                    'exception' => $exception,
-                ]);
-                ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode()>0?$exception->getCode():700);
-                throw $exception;
+        if (is_string($payload)) {
+            $this->client->publish($subject, $payload, $replyTo);
+        } else {
+            if (method_exists($payload, 'serializeViaSymfonySerializer')) {
+                $this->client->publish($subject, $payload->serializeViaSymfonySerializer(), $replyTo);
+            } else {
+                $this->client->publish($subject, $payload->jsonSerialize(), $replyTo);
             }
+        }
+    }
 
-        };
-        $firstStart = true;
-        CoroutineManager::runSafe(function () use ($subject, $streamName) {
-            while(true) {
-                $componentName = 'nats_consumer_' . $streamName . '_' . $subject;
-                try {
-                    $this->client->startReceiving();
-                } catch (Throwable $exception) {
-                    Liveness::setLiveness($componentName, 500, 'fault. '.$exception->getMessage());
-                    Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
-                        'exception' => $exception,
-                    ]);
-                    throw $exception;
-                }
+    /**
+     * @param string $subject
+     * @param string|AbstractMessage $payload
+     * @param string|null $decodeTo
+     * @return string|AbstractMessage
+     */
+    public function publishSync(string $subject, string|AbstractMessage $payload, ?string $decodeTo=null): string|AbstractMessage {
+        if (is_string($payload)) {
+            return $this->client->dispatch($subject, $payload);
+        } else {
+            $result = $this->client->dispatch($subject, $payload->jsonSerialize());
+            $decodedBody = json_decode($result->body, true);
+            if (!!$decodeTo) {
+                $decodedBody['context'] = $result->headers;
+                return $decodedBody;
             }
-        }, $this->name.'_nats_stream_receiving');
+            if (isset($decodedBody['error'])) {
+                //todo what about throw new Exception instead?
+                // if we throw exception, we can work with transports as with services?
+                // no matter if service is local or remote
+                $decodedBody['context'] = $result->headers; //todo what about throw new Exception instead?
+                return $decodedBody;
+            }
+            /** @var AbstractMessage $response */
+            $response =  $decodeTo::from($decodedBody);
+            $response->context = $result->headers;
+            return $response;
+        }
+    }
+
+    private function runThroughKernel(string $subject, string $body, array $headers = [], ?string $queue=null, ?string $stream=null): \Symfony\Component\HttpFoundation\Response|\Illuminate\Http\Response
+    {
+        /** @var Kernel $kernel */
+        $kernel = app()->make(Kernel::class);
+        if (!$stream) {
+            if (!$queue)
+                $uri = $subject;
+            else
+                $uri = $subject. '/' . $queue;
+        } else {
+            $uri = $stream . '/' . $subject;
+        }
+        $convertedHeaders = [
+            'HTTP_NATS_SUBJECT'=> $subject,
+        ];
+        if ($stream) $convertedHeaders['HTTP_NATS_STREAM'] = $stream;
+        if ($queue) $convertedHeaders['HTTP_NATS_QUEUE'] = $queue;
+        foreach ($headers as $key=> $header) {
+            $convertedHeaders['HTTP_'.$key] = $header;
+        }
+        $serverParams = array_merge([
+            'REQUEST_URI'=> $uri,
+            'REQUEST_METHOD'=> 'POST',
+            'QUERY_STRING'=> '',
+        ], $convertedHeaders);
+        $laravelRequest = new Request(
+            query: [],
+            request: json_decode($body, true),
+            attributes: array_merge(['transport'=>'nats']),
+            cookies: [],
+            files: [],
+            server: $serverParams,
+            content: $body
+        );
+        app()->instance('request', $laravelRequest);
+        $result =  $kernel->handle(
+            $laravelRequest
+        );
+        return $result;
+    }
+
+    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $period=null) {
+        $controller = function (Request $request) use ($endpoint) {
+            $endpoint->setContext($request->headers->all());
+            $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
+            /** @var AbstractMessage $dto */
+
+            $dto = $inputType::validateAndCreate($request->json()->all());
+
+            /** @var AbstractMessage $result */
+            $result = $endpoint->__invoke($dto);
+            return $result;
+        };
+        $callback = function(Payload $payload) use ($subject) {
+            $resultChannel = new Channel(1);
+            CoroutineManager::runSafe(function($subject, $payload, $queue=null) use ($resultChannel) {
+                $resultChannel->push(
+                    $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, queue: $queue)
+                );
+            }, 'subject_'.$subject.'_nats_routing_function',
+                $subject, $payload
+            );
+            return $resultChannel->pop();
+        };
+
+        try {
+            Route::post($streamName.'/'.$subject, $controller);
+        } catch (Throwable $exception) {
+            throw $exception;
+        }
+
+        $this->runReceiving();
+
+        $firstStart = true;
         while (true) {
             try {
                 $jetStream = $this->client->getApi()->getStream($streamName);
@@ -189,12 +181,11 @@ class NatsDriver
                     'exception' => $exception,
                 ]);
 
-                ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode()>0?$exception->getCode():700);
+                ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode() > 0 ? $exception->getCode() : 700);
                 throw $exception;
             }
-
             try {
-                $consumer->handle($wrappedFunction);
+                $consumer->handle($callback);
             } catch (Throwable $exception) {
                 Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
                     'exception' => $exception,
@@ -206,6 +197,44 @@ class NatsDriver
                 $consumer->delete();
                 $firstStart = false;
             }
+
         }
+    }
+
+    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queue=null) {
+        $controller = function (Request $request) use ($endpoint) {
+            $endpoint->setContext($request->headers->all());
+            $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
+            /** @var AbstractMessage $dto */
+
+            $dto = $inputType::validateAndCreate($request->json()->all());
+
+            /** @var AbstractMessage $result */
+            $result = $endpoint->__invoke($dto);
+            return $result;
+        };
+        $callback = function(Payload $payload) use ($subject, $queue) {
+            $resultChannel = new Channel(1);
+            CoroutineManager::runSafe(function($subject, $payload, $queue=null) use ($resultChannel) {
+                $resultChannel->push(
+                    $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, queue: $queue)
+                );
+            }, 'subject_'.$subject.'_queue_'.($queue??'').'_nats_routing_function',
+                $subject, $payload, $queue
+            );
+            return $resultChannel->pop();
+        };
+        try {
+            if (!$queue) {
+                Route::post($subject, $controller);
+                $this->client->subscribe($subject, $callback);
+            } else {
+                Route::post($subject . '/' . $queue, $controller);
+                $this->client->subscribeQueue($subject, $queue, $callback);
+            }
+        } catch (Throwable $exception) {
+            throw $exception;
+        }
+        $this->runReceiving();
     }
 }
