@@ -7,6 +7,9 @@ use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\AnnotationsObjectModels\Annotation;
 use FrockDev\ToolsForLaravel\Swow\Processes\RpcHttpProcess;
 use FrockDev\ToolsForLaravel\Swow\Processes\ProcessesRegistry;
+use FrockDev\ToolsForLaravel\Transport\AbstractMessage;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 class RpcHttpProcessManager
 {
@@ -19,6 +22,7 @@ class RpcHttpProcessManager
 
     public function registerProcesses() {
         $routes = $this->findRoutes();
+        $this->registerRoutesInLaravel($routes);
         $process = $this->createProcess($routes);
         $process->setName('rpc-http');
         ProcessesRegistry::register($process);
@@ -51,5 +55,32 @@ class RpcHttpProcessManager
 
     private function createProcess(array $routes) {
         return new RpcHttpProcess($routes);
+    }
+
+    private function registerRoutesInLaravel(array $routes)
+    {
+        foreach ($routes as $route=>$info) {
+            $endpoint = $info['endpoint'];
+            $function = function(Request $request) use ($endpoint) {
+                $endpoint->setContext($request->headers->all());
+                $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
+                /** @var AbstractMessage $dto */
+                if ($request->getMethod()=='GET') {
+                    $dto = $inputType::validateAndCreate($request->query->all());
+                } elseif ($request->getMethod()=='POST') {
+                    $dto = $inputType::validateAndCreate($request->json()->all());
+                }
+                /** @var AbstractMessage $result */
+                $result = $endpoint->__invoke($dto);
+                return $result;
+            };
+            if ($info['method']=='GET') {
+                Route::get($route, $function);
+            } elseif($info['method']=='POST') {
+                Route::post($route, $function);
+            } else {
+                throw new \Exception('We use only GET and POST with RPC.');
+            }
+        }
     }
 }

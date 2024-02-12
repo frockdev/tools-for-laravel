@@ -5,7 +5,8 @@ namespace FrockDev\ToolsForLaravel\Swow\Processes;
 use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
-use Google\Protobuf\Internal\Message;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
 use Swow\CoroutineException;
 use Swow\Errno;
 use Swow\Http\Protocol\ProtocolException;
@@ -16,7 +17,6 @@ use Swow\SocketException;
 
 class RpcHttpProcess extends AbstractProcess
 {
-    private array $routes = [];
     public function __construct(array $routes)
     {
         $this->routes = $routes;
@@ -30,68 +30,60 @@ class RpcHttpProcess extends AbstractProcess
 
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
-        CoroutineManager::runSafe(function (Server $server, array $routes, CommonErrorHandler $errorHandler) {
+        CoroutineManager::runSafe(function (Server $server, CommonErrorHandler $errorHandler) {
             while (true) {
                 try {
                     $connection = null;
                     $connection = $server->acceptConnection();
-                    CoroutineManager::runSafe(static function () use ($connection, $routes, $errorHandler): void {
+                    CoroutineManager::runSafe(static function () use ($connection, $errorHandler): void {
                         try {
                             while (true) {
                                 try {
                                     $request = $connection->recvHttpRequest();
-                                    $requestedUri = trim($request->getUri()->getPath(), '/');
                                     ContextStorage::set('X-Trace-Id', $request->getHeader('X-Trace-Id')[0]??uuid_create());
-                                    if (!array_key_exists($requestedUri, $routes)) {
-                                        $connection->error(\Swow\Http\Status::NOT_FOUND, 'Not Found', close: true);
-
-                                        break;
-                                    }
-                                    if ($request->getMethod()!=$routes[$requestedUri]['method']) {
-                                        $connection->error(\Swow\Http\Status::NOT_ALLOWED, 'Method Not Allowed', close: true);
-
-                                        break;
-                                    }
-                                    $endpoint = $routes[$requestedUri]['endpoint'];
-                                    $convertedHeaders=array_map(function($item) {
-                                        return $item[0];
-                                    }, $request->getHeaders());
-                                    $endpoint->setContext($convertedHeaders);
-
-                                    if ($request->getMethod()==='GET') {
-                                        $requestObject = new ($endpoint::GRPC_INPUT_TYPE)($request->getQueryParams());
-                                    } elseif ($request->getMethod()==='POST') {
-                                        if (!isset($convertedHeaders['Content-Type'])) {
-                                            $connection->error(\Swow\Http\Status::BAD_REQUEST, 'Bad Request. Specify Content-Type: application/json', close: true);
-
-                                            break;
+                                    try {
+                                        $convertedHeaders = [];
+                                        foreach ($request->getHeaders() as $key=>$value) {
+                                            $convertedHeaders['HTTP_'.$key] = $value[0];
                                         }
-                                        /** @var Message $requestObject */
-                                        $requestObject = new ($endpoint::GRPC_INPUT_TYPE)();
-                                        $requestObject->mergeFromJsonString($request->getBody());
-                                    } else {
-                                        $connection->error(\Swow\Http\Status::NOT_ALLOWED, 'Method Not Allowed', close: true);
 
-                                        break;
+                                        /** @var Kernel $kernel */
+                                        $kernel = app()->make(Kernel::class);
+                                        $serverParams = array_merge([
+                                            'REQUEST_URI'=> $request->getUri()->getPath(),
+                                            'REQUEST_METHOD'=> $request->getMethod(),
+                                            'QUERY_STRING'=> $request->getUri()->getQuery(),
+                                        ], $request->getServerParams(), $convertedHeaders);
+                                        $laravelRequest = new Request(
+                                            query: $request->getQueryParams(),
+                                            request: $request->getParsedBody(),
+                                            attributes: array_merge($request->getAttributes(), ['transport'=>'rpc']),
+                                            cookies: $request->getCookieParams(),
+                                            files: $request->getUploadedFiles(),
+                                            server: $serverParams,
+                                            content: $request->getBody()->getContents());
+                                        app()->instance('request', $laravelRequest);
+                                        /** @var \Illuminate\Http\Response $response */
+                                        $response = $kernel->handle(
+                                            $laravelRequest
+                                        );
+
+                                        $swowResponse = new \Swow\Psr7\Message\Response();
+                                        $swowResponse->setBody($response->getContent());
+                                        $swowResponse->setStatus($response->getStatusCode());
+                                        $swowResponse->setHeaders($response->headers->all());
+                                        $swowResponse->setProtocolVersion($response->getProtocolVersion());
+
+                                        $connection->sendHttpResponse($swowResponse);
+                                    } catch (\Throwable $e) {
+                                        $errorInfo = $errorHandler->handleError($e);
+                                        $response = new Response();
+                                        $response->setStatus($errorInfo->errorCode);
+                                        $response->addHeader('Content-Type', 'application/json');
+                                        $response->addHeader('X-Trace-Id', ContextStorage::get('X-Trace-Id'));
+                                        $response->setBody(json_encode($errorInfo->errorData));
+                                        $connection->sendHttpResponse($response);
                                     }
-
-                                    /** @var Message $result */
-                                    $result = $endpoint($requestObject, $connection); //invoke
-                                    $response = new Response();
-                                    $response->addHeader('Content-Type', 'application/json');
-                                    $response->addHeader('X-Trace-Id', ContextStorage::get('X-Trace-Id'));
-                                    $response->setStatus(200);
-
-                                    if (method_exists($result, 'serializeViaSymfonySerializer')) {
-                                        try {
-                                            $response->setBody($result->serializeViaSymfonySerializer());
-                                        } catch (\Symfony\Component\Serializer\Exception\NotNormalizableValueException $e) {
-                                            $response->setBody($result->serializeToJsonString());
-                                        }
-                                    } else {
-                                        $response->setBody($result->serializeToJsonString());
-                                    }
-                                    $connection->sendHttpResponse($response);
 
                                     break;
                                 } catch (ProtocolException $exception) {
@@ -122,6 +114,6 @@ class RpcHttpProcess extends AbstractProcess
                     }
                 }
             }
-        }, $this->name, $server, $this->routes, app()->make(CommonErrorHandler::class));
+        }, $this->name, $server, app()->make(CommonErrorHandler::class));
     }
 }
