@@ -33,7 +33,6 @@ class CoroutineManager
             ContextStorage::setApplication($newContainer);
             $newContainer->instance('app', $newContainer);
             $newContainer->instance(\Illuminate\Foundation\Application::class, $newContainer);
-            $newContainer->instance(\FrockDev\ToolsForLaravel\Application\Application::class, $newContainer);
             $newContainer->instance(Container::class, $newContainer);
 
             $callable(...$args);
