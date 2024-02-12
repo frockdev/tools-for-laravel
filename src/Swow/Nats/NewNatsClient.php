@@ -18,6 +18,7 @@ use Closure;
 use Exception;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Swow\Channel;
 use Swow\Socket;
@@ -67,7 +68,7 @@ class NewNatsClient
             $context->result = $result;
             $channel->push($context);
         });
-        $context = $channel->pop($timeout*1000+5000);
+        $context = $channel->pop($timeout*1000+5000); //todo need to normalize timeout
 
         return $context->result;
     }
@@ -283,7 +284,17 @@ class NewNatsClient
                     }
                     $result = $this->handlers[$message->sid]($message->payload);
                     if ($message->replyTo) {
-                        $payloadObj = Payload::parse($result);
+                        if ($result instanceof JsonResponse) {
+                            $payloadObj = Payload::parse($result->getContent());
+                            $payloadObj->headers = array_map(function ($header) {
+                                return $header[0];
+                            }, $result->headers->all());
+                        } elseif (is_string($result)) {
+                            $payloadObj = Payload::parse($result);
+                        } else {
+                            $payloadObj = Payload::parse(json_encode($result));
+                        }
+
                         $this->send(new Publish([
                             'subject' => $message->replyTo,
                             'payload' => $payloadObj,
