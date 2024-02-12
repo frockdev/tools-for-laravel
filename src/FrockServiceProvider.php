@@ -6,12 +6,12 @@ use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\Console\AddToArrayToGrpcObjects;
 use FrockDev\ToolsForLaravel\Console\CollectAttributesToCache;
 use FrockDev\ToolsForLaravel\Console\CreateEndpointsFromProto;
-use FrockDev\ToolsForLaravel\Console\AddNamespacesToComposerJson;
+use FrockDev\ToolsForLaravel\Console\AddProtoClassMapToComposerJson;
+use FrockDev\ToolsForLaravel\Console\GenerateEndpoints;
 use FrockDev\ToolsForLaravel\Console\GenerateGrafanaMetrics;
+use FrockDev\ToolsForLaravel\Console\GenerateHttpFiles;
 use FrockDev\ToolsForLaravel\Console\PrepareProtoFiles;
 use FrockDev\ToolsForLaravel\Console\ResetNamespacesInComposerJson;
-use FrockDev\ToolsForLaravel\InterceptorInterfaces\PostInterceptorInterface;
-use FrockDev\ToolsForLaravel\InterceptorInterfaces\PreInterceptorInterface;
 use FrockDev\ToolsForLaravel\Serializer\GetSetCustomNormalizer;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Storage;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactory;
@@ -27,57 +27,17 @@ use const Jaeger\SAMPLER_TYPE_CONST;
 
 class FrockServiceProvider extends ServiceProvider
 {
-
-    private function prepareEndpointsAndInterceptors(Collector $collector)
-    {
-        foreach (scandir(app_path() . '/Modules') as $module) {
-            if ($module === '.' || $module === '..' || !is_dir(app_path() . '/Modules/' . $module)) continue;
-            foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints') as $subService) {
-                if ($subService === '.' || $subService === '..' || !is_dir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService)) continue;
-
-                foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService) as $version) {
-                    if ($version === '.' || $version === '..' || !is_dir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version)) continue;
-
-                    foreach (scandir(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version) as $endpoint) {
-                        if ($endpoint === '.' || $endpoint === '..' || !is_file(app_path() . '/Modules/' . $module . '/Endpoints/' . $subService . '/' . $version . '/' . $endpoint)) continue;
-
-                        $endpointClass = 'App\\Modules\\' . $module . '\\Endpoints\\' . $subService . '\\' . $version . '\\' . substr($endpoint, 0, -4);
-
-                        $endpointAttributes = $collector->getAnnotationsByClassName($endpointClass);
-                        $this->app->singleton($endpointClass, $endpointClass);
-                        $this->app->singleton('\\'.$endpointClass, $endpointClass);
-                        $endpointInstance = $this->app->make($endpointClass);
-                        if (array_key_exists('methodAnnotations', $endpointAttributes)) {
-                            foreach ($endpointAttributes['methodAnnotations'] as $methodAttributes) {
-                                foreach ($methodAttributes as $attributeClassName => $attributeInfo) {
-                                    $attributeInstance = new $attributeClassName(...$attributeInfo->getArguments());
-                                    if ($attributeInstance instanceof PreInterceptorInterface) {
-                                        $endpointInstance->addPreInterceptor($attributeInstance);
-                                    } elseif ($attributeInstance instanceof PostInterceptorInterface) {
-                                        $endpointInstance->addPostInterceptor($attributeInstance);
-                                    } else {
-                                        unset($attributeInstance);
-                                    }
-                                }
-                            }
-                        }
-                        $this->app->instance($endpointClass, $endpointInstance);
-                        $this->app->instance('\\'.$endpointClass, $endpointInstance);
-                    }
-                }
-            }
-        }
-    }
-
     public function register()
     {
         $this->commands(CreateEndpointsFromProto::class);
-        $this->commands(AddNamespacesToComposerJson::class);
+        $this->commands(AddProtoClassMapToComposerJson::class);
         $this->commands(ResetNamespacesInComposerJson::class);
         $this->commands(PrepareProtoFiles::class);
         $this->commands(AddToArrayToGrpcObjects::class);
         $this->commands(GenerateGrafanaMetrics::class);
         $this->commands(CollectAttributesToCache::class);
+        $this->commands(GenerateEndpoints::class);
+        $this->commands(GenerateHttpFiles::class);
 
         $this->app->singleton(\Prometheus\CollectorRegistry::class, function() {
             return new \Prometheus\CollectorRegistry(new InMemory());
@@ -95,10 +55,9 @@ class FrockServiceProvider extends ServiceProvider
         });
 
         // own laravel attributes collector
-        $collector = new Collector($this->app);
+        $collector = new Collector(app());
         $collector->collect(app_path());
 
-        $this->prepareEndpointsAndInterceptors($collector);
 
         //@todo should make tracer async
         $this->app->singleton(Tracer::class, function($app) {
