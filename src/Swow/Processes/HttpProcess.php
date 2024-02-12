@@ -14,12 +14,6 @@ use Illuminate\Http\Request;
 
 class HttpProcess extends AbstractProcess
 {
-
-    public function getCleanableInstances(): array {
-        return config('frock.cleanableInstances', [
-
-        ]);
-    }
     protected function run(): void
     {
         $host = '0.0.0.0';
@@ -36,6 +30,7 @@ class HttpProcess extends AbstractProcess
                     \FrockDev\ToolsForLaravel\Swow\CoroutineManager::runSafe(static function () use ($connection): void {
                         try {
                             $request = $connection->recvHttpRequest();
+                            /** @var Kernel $kernel */
                             $kernel = app()->make(Kernel::class);
                             $serverParams = array_merge([
                                 'REQUEST_URI'=> $request->getUri()->getPath(),
