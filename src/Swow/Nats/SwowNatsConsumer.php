@@ -3,8 +3,8 @@
 namespace FrockDev\ToolsForLaravel\Swow\Nats;
 
 use Basis\Nats\Consumer\Configuration;
-use Basis\Nats\Consumer\Runtime;
 use Closure;
+use Illuminate\Support\Facades\Log;
 use Swow\Channel;
 
 class SwowNatsConsumer
@@ -31,7 +31,8 @@ class SwowNatsConsumer
 
             $result = $this->client->api($command, $this->configuration->toArray());
             if ($result->error) {
-                throw new \Exception('Consumer creation failed: ', ['natsError'=>$result->error]);
+                Log::error('Consumer creation failed: ', ['result'=>$result]);
+                throw new \Exception('Consumer creation failed');
             }
             if ($this->configuration->isEphemeral()) {
                 $this->configuration->setName($result->getName());
