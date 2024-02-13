@@ -137,26 +137,30 @@ class NatsDriver
         return $response;
     }
 
-    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $period=null) {
-        $controller = function (Request $request) use ($endpoint) {
+    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $period=null, $disableSpatieValidation = false) {
+        $controller = function (Request $request) use ($endpoint, $disableSpatieValidation) {
             $endpoint->setContext($request->headers->all());
             $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
             /** @var AbstractMessage $dto */
 
-            $dto = $inputType::validateAndCreate($request->json()->all());
+            if ($disableSpatieValidation) {
+                $dto = $inputType::from($request->json()->all());
+            } else {
+                $dto = $inputType::validateAndCreate($request->json()->all());
+            }
 
             /** @var AbstractMessage $result */
             $result = $endpoint->__invoke($dto);
             return $result;
         };
-        $callback = function(Payload $payload) use ($subject) {
+        $callback = function(Payload $payload) use ($subject, $streamName) {
             $resultChannel = new Channel(1);
-            CoroutineManager::runSafe(function($subject, $payload, $queue=null) use ($resultChannel) {
+            CoroutineManager::runSafe(function($subject, $payload, $streamName) use ($resultChannel) {
                 $resultChannel->push(
-                    $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, queue: $queue)
+                    $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, stream: $streamName)
                 );
             }, 'subject_'.$subject.'_nats_routing_function',
-                $subject, $payload
+                $subject, $payload, $streamName
             );
             return $resultChannel->pop();
         };
@@ -207,13 +211,16 @@ class NatsDriver
         }
     }
 
-    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queue=null) {
-        $controller = function (Request $request) use ($endpoint) {
+    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queue=null, bool $disableSpatieValidation = false) {
+        $controller = function (Request $request) use ($endpoint, $disableSpatieValidation) {
             $endpoint->setContext($request->headers->all());
             $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
             /** @var AbstractMessage $dto */
-
-            $dto = $inputType::validateAndCreate($request->json()->all());
+            if ($disableSpatieValidation) {
+                $dto = $inputType::from($request->json()->all());
+            } else {
+                $dto = $inputType::validateAndCreate($request->json()->all());
+            }
 
             /** @var AbstractMessage $result */
             $result = $endpoint->__invoke($dto);
