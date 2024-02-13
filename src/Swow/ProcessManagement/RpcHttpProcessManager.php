@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\ProcessManagement;
 
+use FrockDev\ToolsForLaravel\Annotations\DisableSpatieValidation;
 use FrockDev\ToolsForLaravel\Annotations\Http;
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\AnnotationsObjectModels\Annotation;
@@ -35,6 +36,12 @@ class RpcHttpProcessManager
         $result = [];
         $classes = $this->annotationCollector->getClassesByAnnotation(Http::class);
         foreach ($classes as $className=>$info) {
+
+            if (array_key_exists(DisableSpatieValidation::class, $info['classAnnotations'])) {
+                $disableSpatieValidation = true;
+            } else {
+                $disableSpatieValidation = false;
+            }
             /**
              * @var string $annotationClassName
              * @var Annotation $annotation
@@ -45,7 +52,8 @@ class RpcHttpProcessManager
                     $annotationExemplar = new $annotationClassName(...$annotation->getArguments());
                     $result[trim($annotationExemplar->path,'/')] = [
                         'method'=>strtoupper($annotationExemplar->method),
-                        'endpoint'=>app()->make($className)
+                        'endpoint'=>app()->make($className),
+                        'disableSpatieValidation'=>$disableSpatieValidation,
                     ];
                 }
             }
@@ -60,15 +68,26 @@ class RpcHttpProcessManager
     private function registerRoutesInLaravel(array $routes)
     {
         foreach ($routes as $route=>$info) {
+            $disableSpatieValidation = $info['disableSpatieValidation'];
             $endpoint = $info['endpoint'];
-            $function = function(Request $request) use ($endpoint) {
+            $function = function(Request $request) use ($endpoint, $disableSpatieValidation) {
                 $endpoint->setContext($request->headers->all());
                 $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
                 /** @var AbstractMessage $dto */
                 if ($request->getMethod()=='GET') {
-                    $dto = $inputType::validateAndCreate($request->query->all());
+                    if ($disableSpatieValidation) {
+                        $dto = $inputType::from($request->query->all());
+                    } else {
+                        $dto = $inputType::validateAndCreate($request->query->all());
+                    }
+
                 } elseif ($request->getMethod()=='POST') {
-                    $dto = $inputType::validateAndCreate($request->json()->all());
+                    if ($disableSpatieValidation) {
+                        $dto = $inputType::from($request->json()->all());
+                    } else {
+                        $dto = $inputType::validateAndCreate($request->json()->all());
+                    }
+
                 }
                 /** @var AbstractMessage $result */
                 $result = $endpoint->__invoke($dto);
