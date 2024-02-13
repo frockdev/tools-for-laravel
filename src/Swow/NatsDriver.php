@@ -110,11 +110,15 @@ class NatsDriver
         foreach ($headers as $key=> $header) {
             $convertedHeaders['HTTP_'.$key] = $header;
         }
+        if (!isset($convertedHeaders['HTTP_X-Trace-Id'])) {
+            $convertedHeaders['HTTP_X-Trace-Id'] = uuid_create();
+        }
         $serverParams = array_merge([
             'REQUEST_URI'=> $uri,
             'REQUEST_METHOD'=> 'POST',
             'QUERY_STRING'=> '',
         ], $convertedHeaders);
+
         $laravelRequest = new Request(
             query: [],
             request: json_decode($body, true),
@@ -125,10 +129,12 @@ class NatsDriver
             content: $body
         );
         app()->instance('request', $laravelRequest);
-        $result =  $kernel->handle(
+        Log::debug('Request got from Nats:', ['request'=>$laravelRequest]);
+        $response =  $kernel->handle(
             $laravelRequest
         );
-        return $result;
+        Log::debug('Response got from Nats:', ['response'=>$response]);
+        return $response;
     }
 
     public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $period=null) {
