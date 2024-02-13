@@ -18,7 +18,7 @@ $startSupport = new FrockLaravelStartSupport(
 $exitControlChannel = new Channel(1);
 ContextStorage::setSystemChannel('exitChannel', $exitControlChannel);
 ContextStorage::setCurrentRoutineName('main');
-$laravelApp = $startSupport->initializeLaravel();
+$laravelApp = $startSupport->initializeLaravel(console: true);
 
 $startSupport->loadServicesForArtisan();
 
