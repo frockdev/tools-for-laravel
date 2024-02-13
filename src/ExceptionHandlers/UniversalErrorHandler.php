@@ -22,11 +22,20 @@ class UniversalErrorHandler extends Handler
         $error = $this->commonErrorHandler->handleError($e);
         if ($request->attributes->get('transport')==='rpc') {
             return response()->json($error->errorData)->setStatusCode($error->errorCode);
+        } elseif ($request->attributes->get('transport')==='nats') {
+            return response()->json($error->errorData)->setStatusCode($error->errorCode);
         }
         return $this->httpErrorHandler->render($request, $e);
     }
 
     public function report(\Throwable $e) {
-        parent::report($e);
+        if (request()->attributes->get('transport')==='rpc') {
+            parent::report($e);
+        } elseif (request()->attributes->get('transport')==='nats') {
+            //report each one
+            $this->reportThrowable($e);
+        } else {
+            parent::report($e);
+        }
     }
 }
