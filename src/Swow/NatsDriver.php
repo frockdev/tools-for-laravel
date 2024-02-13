@@ -110,8 +110,8 @@ class NatsDriver
         foreach ($headers as $key=> $header) {
             $convertedHeaders['HTTP_'.$key] = $header;
         }
-        if (!isset($convertedHeaders['HTTP_X-Trace-Id'])) {
-            $convertedHeaders['HTTP_X-Trace-Id'] = uuid_create();
+        if (!isset($convertedHeaders['HTTP_x-trace-id'])) {
+            $convertedHeaders['HTTP_x-trace-id'] = ContextStorage::get('x-trace-id');
         }
         $serverParams = array_merge([
             'REQUEST_URI'=> $uri,
@@ -155,6 +155,7 @@ class NatsDriver
         };
         $callback = function(Payload $payload) use ($subject, $streamName) {
             $resultChannel = new Channel(1);
+            ContextStorage::set('x-trace-id', $payload->getHeader('x-trace-id')??uuid_create());
             CoroutineManager::runSafe(function($subject, $payload, $streamName) use ($resultChannel) {
                 $resultChannel->push(
                     $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, stream: $streamName)
@@ -228,6 +229,7 @@ class NatsDriver
         };
         $callback = function(Payload $payload) use ($subject, $queue) {
             $resultChannel = new Channel(1);
+            ContextStorage::set('x-trace-id', $payload->getHeader('x-trace-id')??uuid_create());
             CoroutineManager::runSafe(function($subject, $payload, $queue=null) use ($resultChannel) {
                 $resultChannel->push(
                     $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, queue: $queue)

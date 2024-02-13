@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\ExceptionHandlers;
 
+use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Foundation\Exceptions\Handler;
 
@@ -21,9 +22,15 @@ class UniversalErrorHandler extends Handler
     {
         $error = $this->commonErrorHandler->handleError($e);
         if ($request->attributes->get('transport')==='rpc') {
-            return response()->json($error->errorData)->setStatusCode($error->errorCode);
+            return response()
+                ->json($error->errorData)
+                ->setStatusCode($error->errorCode)
+                ->header('x-trace-id', ContextStorage::get('x-trace-id'));
         } elseif ($request->attributes->get('transport')==='nats') {
-            return response()->json($error->errorData)->setStatusCode($error->errorCode);
+            return response()
+                ->json($error->errorData)
+                ->setStatusCode($error->errorCode)
+                ->header('x-trace-id', ContextStorage::get('x-trace-id'));
         }
         return $this->httpErrorHandler->render($request, $e);
     }

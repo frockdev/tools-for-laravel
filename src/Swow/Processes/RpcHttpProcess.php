@@ -40,12 +40,13 @@ class RpcHttpProcess extends AbstractProcess
                             while (true) {
                                 try {
                                     $request = $connection->recvHttpRequest();
-                                    ContextStorage::set('X-Trace-Id', $request->getHeader('X-Trace-Id')[0]??uuid_create());
+                                    ContextStorage::set('x-trace-id', $request->getHeader('x-trace-id')[0]??uuid_create());
                                     try {
                                         $convertedHeaders = [];
                                         foreach ($request->getHeaders() as $key=>$value) {
                                             $convertedHeaders['HTTP_'.$key] = $value[0];
                                         }
+                                        $convertedHeaders['HTTP_x-trace-id'] = ContextStorage::get('x-trace-id');
 
                                         /** @var Kernel $kernel */
                                         $kernel = app()->make(Kernel::class);
@@ -80,7 +81,7 @@ class RpcHttpProcess extends AbstractProcess
                                         $response = new Response();
                                         $response->setStatus($errorInfo->errorCode);
                                         $response->addHeader('Content-Type', 'application/json');
-                                        $response->addHeader('X-Trace-Id', ContextStorage::get('X-Trace-Id'));
+                                        $response->addHeader('x-trace-id', ContextStorage::get('x-trace-id'));
                                         $response->setBody(json_encode($errorInfo->errorData));
                                         $connection->sendHttpResponse($response);
                                     }
@@ -95,7 +96,7 @@ class RpcHttpProcess extends AbstractProcess
                                     $response = new Response();
                                     $response->setStatus($errorInfo->errorCode);
                                     $response->addHeader('Content-Type', 'application/json');
-                                    $response->addHeader('X-Trace-Id', ContextStorage::get('X-Trace-Id'));
+                                    $response->addHeader('x-trace-id', ContextStorage::get('x-trace-id'));
                                     $response->setBody(json_encode($errorInfo->errorData));
                                     $connection->sendHttpResponse($response);
 

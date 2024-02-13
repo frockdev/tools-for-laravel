@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Http\Response;
 use Swow\CoroutineException;
 use Swow\Errno;
@@ -32,11 +33,18 @@ class HttpProcess extends AbstractProcess
                             $request = $connection->recvHttpRequest();
                             /** @var Kernel $kernel */
                             $kernel = app()->make(Kernel::class);
+                            ContextStorage::set('x-trace-id', $request->getHeader('x-trace-id')??uuid_create());
+                            $convertedHeaders = [];
+                            foreach ($request->getHeaders() as $key=> $header) {
+                                $convertedHeaders['HTTP_'.$key] = $header[0];
+                            }
+                            $convertedHeaders['HTTP_x-trace-id'] = ContextStorage::get('x-trace-id');
+
                             $serverParams = array_merge([
                                 'REQUEST_URI'=> $request->getUri()->getPath(),
                                 'REQUEST_METHOD'=> $request->getMethod(),
                                 'QUERY_STRING'=> $request->getUri()->getQuery(),
-                            ], $request->getServerParams());
+                            ], $request->getServerParams(), $convertedHeaders);
                             $laravelRequest = new Request(
                                 query: $request->getQueryParams(),
                                 request: $request->getParsedBody(),

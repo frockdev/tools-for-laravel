@@ -27,10 +27,13 @@ class CoroutineManager
 
     private static function runSafeWithNewContainer(callable $callable, string $processName, object $container, ...$args): void
     {
-
-        $coroutine = new \Swow\Coroutine(function ($callable, $newContainer, $processName, ...$args) {
+        $currentTraceId = ContextStorage::get('x-trace-id');
+        $coroutine = new \Swow\Coroutine(function ($callable, $newContainer, $processName, $traceId, ...$args) {
             ContextStorage::setCurrentRoutineName($processName);
             ContextStorage::setApplication($newContainer);
+            if ($traceId) {
+                ContextStorage::set('x-trace-id', $traceId);
+            }
             $newContainer->instance('app', $newContainer);
             $newContainer->instance(\Illuminate\Foundation\Application::class, $newContainer);
             $newContainer->instance(Container::class, $newContainer);
@@ -38,6 +41,6 @@ class CoroutineManager
             $callable(...$args);
             ContextStorage::clearStorage();
         });
-        $coroutine->resume($callable, $container, $processName, ...$args);
+        $coroutine->resume($callable, $container, $processName, $currentTraceId, ...$args);
     }
 }
