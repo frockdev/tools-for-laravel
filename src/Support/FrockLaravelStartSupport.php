@@ -88,20 +88,29 @@ class FrockLaravelStartSupport
 
     }
 
-    public function initializeLaravel(): \Illuminate\Foundation\Application
+    public function initializeLaravel(bool $console = false): \Illuminate\Foundation\Application
     {
-
         $app = $this->bootstrapApplication();
-        $app->bootstrapWith([
-            \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
-            \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
-            \Illuminate\Foundation\Bootstrap\HandleExceptions::class,
-            \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
-//            \Illuminate\Foundation\Bootstrap\SetRequestForConsole::class,
-            \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
-            \Illuminate\Foundation\Bootstrap\BootProviders::class,
-        ]);
-
+        if ($console===true) {
+            $app->bootstrapWith([
+                \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
+                \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
+                \Illuminate\Foundation\Bootstrap\HandleExceptions::class,
+                \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
+                \Illuminate\Foundation\Bootstrap\SetRequestForConsole::class,
+                \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
+                \Illuminate\Foundation\Bootstrap\BootProviders::class,
+            ]);
+        } else {
+            $app->bootstrapWith([
+                \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
+                \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
+                \Illuminate\Foundation\Bootstrap\HandleExceptions::class,
+                \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
+                \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
+                \Illuminate\Foundation\Bootstrap\BootProviders::class,
+            ]);
+        }
         return $app;
     }
 
