@@ -12,15 +12,18 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
     private string $streamName;
     private ?int $interval;
     private NatsDriver $driver;
+    private bool $disableSpatieValidation = false;
 
     public function __construct(
         object $endpoint,
         string $subject,
         string $streamName,
-        ?int  $interval=null
+        ?int  $interval=null,
+        bool $disableSpatieValidation = false
     )
     {
         $this->endpoint = $endpoint;
+        $this->disableSpatieValidation = $disableSpatieValidation;
         $this->subject = $subject;
         $this->streamName = $streamName;
         $this->interval = $interval;
@@ -33,7 +36,8 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
             subject: $this->subject,
             streamName: $this->streamName,
             endpoint: $this->endpoint,
-            period: $this->interval
+            period: $this->interval,
+            disableSpatieValidation: $this->disableSpatieValidation,
         );
     }
 }
