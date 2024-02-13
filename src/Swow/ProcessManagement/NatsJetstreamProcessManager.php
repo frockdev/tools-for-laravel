@@ -1,6 +1,7 @@
 <?php
 
 namespace FrockDev\ToolsForLaravel\Swow\ProcessManagement;
+use FrockDev\ToolsForLaravel\Annotations\DisableSpatieValidation;
 use FrockDev\ToolsForLaravel\Annotations\NatsJetstream;
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\AnnotationsObjectModels\Annotation;
@@ -29,6 +30,11 @@ class NatsJetstreamProcessManager {
             if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($endpointClassName)) {
                 continue;
             }
+            if (array_key_exists(DisableSpatieValidation::class, $classAttributesInfo['classAnnotations'])) {
+                $disableSpatieValidation = true;
+            } else {
+                $disableSpatieValidation = false;
+            }
             /**
              * @var string $attributeClassName
              * @var Annotation $attributeInfo
@@ -45,6 +51,7 @@ class NatsJetstreamProcessManager {
                     $attributeExemplar->subject,
                     $attributeExemplar->streamName,
                     $attributeExemplar->period,
+                    $disableSpatieValidation
                 );
                 $process->setName($attributeExemplar->name . '-' . $attributeExemplar->subject.'-'.$attributeExemplar->subject);
                 ProcessesRegistry::register($process);
@@ -52,9 +59,9 @@ class NatsJetstreamProcessManager {
         }
     }
 
-    private function createProcess(object $consumer, string $subject, string $stream, ?int $interval=null): AbstractProcess
+    private function createProcess(object $consumer, string $subject, string $stream, ?int $interval=null, bool $disableSpatieValidation=false): AbstractProcess
     {
-        return new NatsJetStreamConsumerProcess($consumer, $subject, $stream, $interval);
+        return new NatsJetStreamConsumerProcess($consumer, $subject, $stream, $interval, $disableSpatieValidation);
     }
 
 }

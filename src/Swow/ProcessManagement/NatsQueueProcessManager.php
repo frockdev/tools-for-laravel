@@ -1,6 +1,7 @@
 <?php
 
 namespace FrockDev\ToolsForLaravel\Swow\ProcessManagement;
+use FrockDev\ToolsForLaravel\Annotations\DisableSpatieValidation;
 use FrockDev\ToolsForLaravel\Annotations\Nats;
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
 use FrockDev\ToolsForLaravel\AnnotationsObjectModels\Annotation;
@@ -29,6 +30,11 @@ class NatsQueueProcessManager {
             if (!$this->endpointFeatureFlagManager->checkIfEndpointEnabled($endpointClassName)) {
                 continue;
             }
+            if (array_key_exists(DisableSpatieValidation::class, $classAttributesInfo['classAnnotations'])) {
+                $disableSpatieValidation = true;
+            } else {
+                $disableSpatieValidation = false;
+            }
             /**
              * @var string $attributeClassName
              * @var Annotation $attributeInfo
@@ -44,6 +50,7 @@ class NatsQueueProcessManager {
                     app()->make($endpointClassName),
                     $attributeExemplar->subject,
                     $attributeExemplar->queueName,
+                    $disableSpatieValidation
                 );
                 $process->setName($attributeExemplar->name . '-' . $attributeExemplar->subject.'-'.$attributeExemplar->subject);
                 ProcessesRegistry::register($process);
@@ -51,9 +58,9 @@ class NatsQueueProcessManager {
         }
     }
 
-    private function createProcess(object $consumer, string $subject, string $queueName): AbstractProcess
+    private function createProcess(object $consumer, string $subject, string $queueName, bool $disableSpatieValidation): AbstractProcess
     {
-        return new NatsQueueConsumerProcess($consumer, $subject, $queueName);
+        return new NatsQueueConsumerProcess($consumer, $subject, $queueName, $disableSpatieValidation);
     }
 
 }
