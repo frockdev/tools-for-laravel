@@ -109,11 +109,12 @@ class GenerateEndpoints extends Command
         $namespaceName = $this->getNamespaceString($fileContent);
         $this->checkNamespace($namespaceName);
         $interfaceNames = $this->getInterfaceNames($fileContent);
-        if (is_null($interfaceNames)) {
+        if (count($interfaceNames)===0 || is_null($interfaceNames)) {
             Log::error('No interface found in file: ' . $filePath);
+            return;
         }
         if (count($interfaceNames) > 1) {
-            Log::error('More than one interface found in file: ' . $filePath);
+            throw new \Exception('More than one interface found in file: ' . $filePath);
         }
         $interfaceName = $interfaceNames[0];
         /** @var InterfaceType $interfaceType */
