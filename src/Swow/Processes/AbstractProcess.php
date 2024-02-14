@@ -2,7 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
-use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
+use FrockDev\ToolsForLaravel\Swow\Co\Co;
 
 abstract class AbstractProcess
 {
@@ -20,9 +20,12 @@ abstract class AbstractProcess
 
     public function runProcessInCoroutine(): void
     {
-        CoroutineManager::runSafeFromMain(function () {
-            $this->run();
-        }, $this->getName());
+        Co::define($this->getName())
+            ->charge(function () {
+                $this->run();
+            })
+            ->forkMain()
+            ->run();
     }
 
     abstract protected function run(): void;

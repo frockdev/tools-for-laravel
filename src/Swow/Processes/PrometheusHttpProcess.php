@@ -2,7 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
-use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
+use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use Prometheus\CollectorRegistry;
 use Prometheus\RenderTextFormat;
 use Swow\CoroutineException;
@@ -35,12 +35,12 @@ class PrometheusHttpProcess extends AbstractProcess
 
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
-        CoroutineManager::runSafe(function (Server $server, CollectorRegistry $registry) {
+        Co::define($this->name)->charge(function (Server $server, CollectorRegistry $registry) {
             while (true) {
                 try {
                     $connection = null;
                     $connection = $server->acceptConnection();
-                    CoroutineManager::runSafe(static function () use ($connection, $registry): void {
+                    Co::define('prometheusHandler')->charge(static function () use ($connection, $registry): void {
                         try {
                             while (true) {
                                 $request = null;
@@ -70,7 +70,7 @@ class PrometheusHttpProcess extends AbstractProcess
                         } finally {
                             $connection->close();
                         }
-                    }, 'prometheusHandler');
+                    })->run();
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
                         sleep(1);
@@ -79,6 +79,6 @@ class PrometheusHttpProcess extends AbstractProcess
                     }
                 }
             }
-        }, $this->name, $server, $this->registry);
+        })->args($server, $this->registry)->run();
     }
 }

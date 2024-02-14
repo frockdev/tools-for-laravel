@@ -3,8 +3,8 @@
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
 use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
+use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
-use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Swow\CoroutineException;
@@ -30,12 +30,12 @@ class RpcHttpProcess extends AbstractProcess
 
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
-        CoroutineManager::runSafe(function (Server $server, CommonErrorHandler $errorHandler) {
+        Co::define($this->name)->charge(function (Server $server, CommonErrorHandler $errorHandler) {
             while (true) {
                 try {
                     $connection = null;
                     $connection = $server->acceptConnection();
-                    CoroutineManager::runSafe(static function () use ($connection, $errorHandler): void {
+                    Co::define('rpcHttpHandler')->charge(static function () use ($connection, $errorHandler): void {
                         try {
                             while (true) {
                                 try {
@@ -106,7 +106,7 @@ class RpcHttpProcess extends AbstractProcess
                         } finally {
                             $connection->close();
                         }
-                    }, 'rpcHttpHandler');
+                    })->run();
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
                         sleep(1);
@@ -115,6 +115,6 @@ class RpcHttpProcess extends AbstractProcess
                     }
                 }
             }
-        }, $this->name, $server, app()->make(CommonErrorHandler::class));
+        })->args($server, app()->make(CommonErrorHandler::class))->run();
     }
 }
