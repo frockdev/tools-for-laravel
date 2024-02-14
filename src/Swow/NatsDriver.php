@@ -3,6 +3,7 @@
 namespace FrockDev\ToolsForLaravel\Swow;
 
 use Basis\Nats\Message\Payload;
+use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
 use FrockDev\ToolsForLaravel\Transport\AbstractMessage;
 use Illuminate\Contracts\Http\Kernel;
@@ -33,7 +34,8 @@ class NatsDriver
     }
 
     public function runReceiving(string $namePostfix='') {
-        CoroutineManager::runSafe(function () {
+        Co::define($this->name.'_nats_receiving_'.$namePostfix)
+            ->charge(function () {
             while(true) {
                 try {
                     $this->client->startReceiving();
@@ -44,7 +46,16 @@ class NatsDriver
                     throw $exception;
                 }
             }
-        }, $this->name.'_nats_receiving_'.$namePostfix);
+        })->run();
+    }
+
+    public function publishToStream(string $streamName, string $subject, string|AbstractMessage $payload)
+    {
+        if (!is_string($payload)) {
+            $payload = $payload->toJson();
+        }
+        $stream = $this->client->getApi()->getStream($streamName);
+        $stream->put($subject, $payload);
     }
 
     public function publish(string $subject, string|AbstractMessage $payload, $replyTo = null): void
@@ -156,13 +167,13 @@ class NatsDriver
         $callback = function(Payload $payload) use ($subject, $streamName) {
             $resultChannel = new Channel(1);
             ContextStorage::set('x-trace-id', $payload->getHeader('x-trace-id')??uuid_create());
-            CoroutineManager::runSafe(function($subject, $payload, $streamName) use ($resultChannel) {
+            Co::define('subject_'.$subject.'_nats_routing_function')->charge(function($subject, $payload, $streamName) use ($resultChannel) {
                 $resultChannel->push(
                     $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, stream: $streamName)
                 );
-            }, 'subject_'.$subject.'_nats_routing_function',
-                $subject, $payload, $streamName
-            );
+            })->args($subject, $payload, $streamName)
+                ->run();
+
             return $resultChannel->pop();
         };
 
@@ -230,13 +241,13 @@ class NatsDriver
         $callback = function(Payload $payload) use ($subject, $queue) {
             $resultChannel = new Channel(1);
             ContextStorage::set('x-trace-id', $payload->getHeader('x-trace-id')??uuid_create());
-            CoroutineManager::runSafe(function($subject, $payload, $queue=null) use ($resultChannel) {
+            Co::define('subject_'.$subject.'_queue_'.($queue??'').'_nats_routing_function')
+                ->charge(function($subject, $payload, $queue=null) use ($resultChannel) {
                 $resultChannel->push(
                     $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, queue: $queue)
                 );
-            }, 'subject_'.$subject.'_queue_'.($queue??'').'_nats_routing_function',
-                $subject, $payload, $queue
-            );
+            })->args($subject, $payload, $queue)
+                ->run();
             return $resultChannel->pop();
         };
         try {
