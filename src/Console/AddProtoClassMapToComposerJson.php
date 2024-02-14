@@ -13,7 +13,7 @@ class AddProtoClassMapToComposerJson extends Command
         $fileContent = file_get_contents(app_path().'/../composer.json');
         $fileContent = str_replace(' artisan ', ' frock.php ', $fileContent);
         $composerJson = json_decode($fileContent, true);
-        @mkdir(app_path().'/../protoPhp', 0777, true);
+        @mkdir(app_path().'/../../protoPhp', 0777, true);
         $composerJson['autoload']['classmap'] = [
             "../protoPhp"
         ];
