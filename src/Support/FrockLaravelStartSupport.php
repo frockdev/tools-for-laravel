@@ -4,8 +4,8 @@ namespace FrockDev\ToolsForLaravel\Support;
 
 use FrockDev\ToolsForLaravel\Application\Application;
 use FrockDev\ToolsForLaravel\ExceptionHandlers\UniversalErrorHandler;
+use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
-use FrockDev\ToolsForLaravel\Swow\CoroutineManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\CustomProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\HttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\LivenessProcessManager;
@@ -150,7 +150,8 @@ class FrockLaravelStartSupport
         config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER',\Monolog\Formatter\JsonFormatter::class)]);
         config(['logging.default'=>'custom']);
 
-        CoroutineManager::runSafe(function() {
+        Co::define('main-logger')
+            ->charge(function() {
             $channel = new \Swow\Channel(1000);
             ContextStorage::setSystemChannel('log', $channel);
 
@@ -164,7 +165,7 @@ class FrockLaravelStartSupport
                         $message->context
                     );
             }
-        }, 'main-logger');
+        })->run();
     }
 
     private function loadNatsService()
