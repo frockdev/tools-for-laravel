@@ -13,6 +13,11 @@ class ContextStorage
         'containers' => [],
     ];
 
+    public static function removeSystemChannel(string $name): void
+    {
+        unset(self::$storage['systemChannels'][$name]);
+    }
+
     public static function setSystemChannel(string $name, Channel $channel): void
     {
         if (array_key_exists($name, self::$storage['systemChannels'] ?? [])) {

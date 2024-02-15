@@ -39,7 +39,6 @@ class NewNatsClient
         $this->configuration = $configuration;
         $this->clientName = $clientName;
         $this->api = new SwowNatsApi($this);
-        ContextStorage::setSystemChannel('natsReceiveChannel_'.$clientName, new Channel());
         $this->connect();
     }
 
@@ -230,79 +229,84 @@ class NewNatsClient
     }
 
     public function startReceiving(): void {
-        $natsSystemChannel = ContextStorage::getSystemChannel('natsReceiveChannel_'.$this->clientName);
-        while (true) {
-            if ($natsSystemChannel->getLength() > 0) {
-                $systemMessage = $natsSystemChannel->pop();
-                if ($systemMessage === 'exit') {
-                    Log::debug('Got nats exit. Stopping consuming');
-                    return;
+        ContextStorage::setSystemChannel('natsReceiveChannel_'.$this->clientName, new Channel());
+        try {
+            $natsSystemChannel = ContextStorage::getSystemChannel('natsReceiveChannel_' . $this->clientName);
+            while (true) {
+                if ($natsSystemChannel->getLength() > 0) {
+                    $systemMessage = $natsSystemChannel->pop();
+                    if ($systemMessage === 'exit') {
+                        Log::debug('Got nats exit. Stopping consuming');
+                        return;
+                    }
+                }
+                Liveness::setLiveness($this->clientName, 200, 'Receiving', Liveness::MODE_5_SEC);
+
+                $this->connect();
+
+                if ($this->innerBuffer === '') {
+                    $this->readLinesIntoBuffer();
+                }
+
+                $line = trim($this->getLineByDelimiter("\r\n"));
+                if (!$line) continue;
+
+                switch (trim($line)) {
+                    case 'PING':
+                        $this->pong();
+                        continue 2;
+                    case 'PONG':
+                        continue 2;
+
+                    case '+OK':
+                        continue 2;
+                }
+
+                try {
+                    $message = Factory::create(trim($line));
+                } catch (\Throwable $exception) {
+                    Log::debug($line);
+                    throw $exception;
+                }
+
+                switch (get_class($message)) {
+                    case Info::class:
+                        Log::debug('receive ' . $line);
+                        continue 2;
+
+                    case Msg::class:
+//                    $payload = $line . ' '.$this->getLineByLength($message->length);
+                        $payload = $this->getLineByLength($message->length);
+                        $message->parse($payload);
+                        Log::debug('receive ' . $line . $payload);
+                        if (!array_key_exists($message->sid, $this->handlers)) {
+                            Log::info('No handler for message ' . $message->render());
+                            continue 2;
+                        }
+                        $result = $this->handlers[$message->sid]($message->payload);
+                        if ($message->replyTo) {
+                            if ($result instanceof JsonResponse) {
+                                $payloadObj = Payload::parse($result->getContent());
+                                $payloadObj->headers = array_map(function ($header) {
+                                    return $header[0];
+                                }, $result->headers->all());
+                            } elseif (is_string($result)) {
+                                $payloadObj = Payload::parse($result);
+                            } else {
+                                $payloadObj = Payload::parse(json_encode($result));
+                            }
+
+                            $this->send(new Publish([
+                                'subject' => $message->replyTo,
+                                'payload' => $payloadObj,
+                            ]));
+                            Log::debug('Replied to ' . $message->replyTo . ' with ' . $payloadObj->render());
+                        }
+                        break;
                 }
             }
-            Liveness::setLiveness($this->clientName, 200, 'Receiving', Liveness::MODE_5_SEC);
-
-            $this->connect();
-
-            if ($this->innerBuffer === '') {
-                $this->readLinesIntoBuffer();
-            }
-
-            $line = trim($this->getLineByDelimiter("\r\n"));
-            if (!$line) continue;
-
-            switch (trim($line)) {
-                case 'PING':
-                    $this->pong();
-                    continue 2;
-                case 'PONG':
-                    continue 2;
-
-                case '+OK':
-                    continue 2;
-            }
-
-            try {
-                $message = Factory::create(trim($line));
-            } catch (\Throwable $exception) {
-                Log::debug($line);
-                throw $exception;
-            }
-
-            switch (get_class($message)) {
-                case Info::class:
-                    Log::debug('receive ' . $line);
-                    continue 2;
-
-                case Msg::class:
-//                    $payload = $line . ' '.$this->getLineByLength($message->length);
-                    $payload = $this->getLineByLength($message->length);
-                    $message->parse($payload);
-                    Log::debug('receive ' . $line . $payload);
-                    if (!array_key_exists($message->sid, $this->handlers)) {
-                        Log::info('No handler for message ' . $message->render());
-                        continue 2;
-                    }
-                    $result = $this->handlers[$message->sid]($message->payload);
-                    if ($message->replyTo) {
-                        if ($result instanceof JsonResponse) {
-                            $payloadObj = Payload::parse($result->getContent());
-                            $payloadObj->headers = array_map(function ($header) {
-                                return $header[0];
-                            }, $result->headers->all());
-                        } elseif (is_string($result)) {
-                            $payloadObj = Payload::parse($result);
-                        } else {
-                            $payloadObj = Payload::parse(json_encode($result));
-                        }
-
-                        $this->send(new Publish([
-                            'subject' => $message->replyTo,
-                            'payload' => $payloadObj,
-                        ]));
-                        Log::debug('Replied to ' . $message->replyTo . ' with ' . $payloadObj->render());
-                    }
-                    break;
-            }
+        } finally {
+            ContextStorage::removeSystemChannel('natsReceiveChannel_' . $this->clientName);
         }
     }
 
