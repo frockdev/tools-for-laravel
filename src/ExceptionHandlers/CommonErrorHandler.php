@@ -9,6 +9,9 @@ use Throwable;
 class CommonErrorHandler
 {
     public function handleError(Throwable $throwable): ?ErrorData {
+        if ($throwable instanceof \Illuminate\Http\Client\RequestException) {
+            return $this->handleHttpClientRequestException($throwable);
+        }
         if (
             $throwable instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
             if ($throwable->getStatusCode() == 404) {
@@ -83,6 +86,18 @@ class CommonErrorHandler
             'error'=>true,
             'errorCode'=>400,
             'errorMessage' =>$message
+        ];
+        return $result;
+    }
+
+    private function handleHttpClientRequestException(\Illuminate\Http\Client\RequestException $throwable)
+    {
+        $result = new ErrorData();
+        $result->errorCode = 424;
+        $result->errorData = [
+            'error'=>true,
+            'errorCode'=>424,
+            'errorMessage' => 'Http client responded with: '.$throwable->response->status().'. '.$throwable->response->body()
         ];
         return $result;
     }
