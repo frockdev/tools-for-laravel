@@ -3,25 +3,33 @@
 namespace FrockDev\ToolsForLaravel\ExceptionHandlers;
 
 use FrockDev\ToolsForLaravel\ExceptionHandlers\Data\ErrorData;
+use FrockDev\ToolsForLaravel\Exceptions\HttpClientException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
+use UnexpectedValueException;
 
 class CommonErrorHandler
 {
     public function handleError(Throwable $throwable): ?ErrorData {
-        if ($throwable instanceof \Illuminate\Http\Client\RequestException) {
+        if ($throwable instanceof HttpClientException) {
+            return $this->handleCustomHttpClientException($throwable);
+        }
+        if ($throwable instanceof RequestException) {
             return $this->handleHttpClientRequestException($throwable);
         }
         if (
-            $throwable instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+            $throwable instanceof HttpException) {
             if ($throwable->getStatusCode() == 404) {
                 return $this->handle404($throwable);
             }
         }
-        if ($throwable instanceof \UnexpectedValueException) {
+        if ($throwable instanceof UnexpectedValueException) {
             return $this->handle400($throwable);
         }
-        if ($throwable instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+        if ($throwable instanceof ModelNotFoundException) {
             return $this->handle404($throwable);
         }
         if ($throwable->getCode() == 404) {
@@ -33,7 +41,7 @@ class CommonErrorHandler
         return $this->handle500($throwable);
     }
 
-    private function handle500(\Throwable $throwable): ErrorData
+    private function handle500(Throwable $throwable): ErrorData
     {
         $result = new ErrorData();
         $result->errorCode = 500;
@@ -90,7 +98,7 @@ class CommonErrorHandler
         return $result;
     }
 
-    private function handleHttpClientRequestException(\Illuminate\Http\Client\RequestException $throwable)
+    private function handleHttpClientRequestException(RequestException $throwable)
     {
         $result = new ErrorData();
         $result->errorCode = 424;
@@ -99,6 +107,20 @@ class CommonErrorHandler
             'errorCode'=>424,
             'errorMessage' => 'Http client responded with: '.$throwable->response->status().'. '.$throwable->response->body()
         ];
+        return $result;
+    }
+
+    private function handleCustomHttpClientException(HttpClientException $throwable)
+    {
+        $result = new ErrorData();
+        $result->errorCode = 424;
+        $result->errorData = [
+            'error'=>true,
+            'errorCode'=>424,
+            'errorMessage' => 'Http client responded with: '.$throwable->exceptionData->responseCode.' at '.$throwable->exceptionData->url,
+            'context'=>$throwable->exceptionData->getAsArray()
+        ];
+
         return $result;
     }
 }
