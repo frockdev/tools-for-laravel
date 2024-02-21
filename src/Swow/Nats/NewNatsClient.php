@@ -33,6 +33,7 @@ class NewNatsClient
 
     private array $handlers = [];
     private array $subscriptions = [];
+    private SwowNatsApi $api;
 
     public function __construct(Configuration $configuration, string $clientName)
     {
