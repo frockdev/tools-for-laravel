@@ -4,15 +4,15 @@ namespace FrockDev\ToolsForLaravel\Exceptions;
 
 class HttpClientExceptionData
 {
-    public string $url;
-    public array $requestData;
-    public string $method;
-    public int $responseCode;
-    public array $clientHeaders;
-    public ?array $responseHeaders;
-    public mixed $responseBody;
+    public string $url = '';
+    public array $requestData = [];
+    public string $method = '';
+    public int $responseCode = 0;
+    public array $clientHeaders = [];
+    public ?array $responseHeaders = [];
+    public mixed $responseBody = [];
 
-    public array $context;
+    public array $context = [];
 
     public function getAsArray(): array {
         return [
