@@ -12,6 +12,8 @@ class HttpClientExceptionData
     public ?array $responseHeaders;
     public mixed $responseBody;
 
+    public array $context;
+
     public function getAsArray(): array {
         return [
             'url' => $this->url,
@@ -20,7 +22,8 @@ class HttpClientExceptionData
             'responseCode' => $this->responseCode,
             'clientHeaders' => $this->clientHeaders,
             'responseHeaders' => $this->responseHeaders,
-            'responseBody' => $this->responseBody
+            'responseBody' => $this->responseBody,
+            'context' => $this->context,
         ];
     }
 
@@ -63,6 +66,12 @@ class HttpClientExceptionData
     public function setResponseBody(mixed $responseBody): self
     {
         $this->responseBody = $responseBody;
+        return $this;
+    }
+
+    public function addContext(string $key, mixed $value): self
+    {
+        $this->context[$key] = $value;
         return $this;
     }
 }
