@@ -8,7 +8,7 @@ use Swow\Channel;
 
 define('LARAVEL_START', microtime(true));
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once $GLOBALS['_composer_autoload_path'];
 
 $appModeResolver = new AppModeResolver();
 $startSupport = new FrockLaravelStartSupport(
