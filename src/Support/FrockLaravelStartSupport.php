@@ -28,14 +28,14 @@ class FrockLaravelStartSupport
     private function bootstrapApplication(): \Illuminate\Foundation\Application {
 
         $safeApp = new Application(
-            '/var/www/php',
+            realpath(dirname($GLOBALS['_composer_autoload_path']).'/../'),
             true
         );
         $safeApp->disableSafeContainerInitializationMode();
 
 
         $unsafeApp = new \Illuminate\Foundation\Application(
-            '/var/www/php'
+            realpath(dirname($GLOBALS['_composer_autoload_path']).'/../')
         );
 
 

@@ -3,16 +3,11 @@
 namespace FrockDev\ToolsForLaravel;
 
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
-use FrockDev\ToolsForLaravel\Console\AddToArrayToGrpcObjects;
 use FrockDev\ToolsForLaravel\Console\CollectAttributesToCache;
-use FrockDev\ToolsForLaravel\Console\CreateEndpointsFromProto;
 use FrockDev\ToolsForLaravel\Console\AddProtoClassMapToComposerJson;
 use FrockDev\ToolsForLaravel\Console\GenerateEndpoints;
 use FrockDev\ToolsForLaravel\Console\GenerateGrafanaMetrics;
 use FrockDev\ToolsForLaravel\Console\GenerateHttpFiles;
-use FrockDev\ToolsForLaravel\Console\PrepareProtoFiles;
-use FrockDev\ToolsForLaravel\Console\ResetNamespacesInComposerJson;
-use FrockDev\ToolsForLaravel\Serializer\GetSetCustomNormalizer;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Storage;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactory;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
@@ -21,19 +16,13 @@ use Jaeger\Config;
 use OpenTracing\NoopTracer;
 use OpenTracing\Tracer;
 use Prometheus\Storage\InMemory;
-use Symfony\Component\Serializer\Encoder\JsonEncoder;
-use Symfony\Component\Serializer\Serializer;
 use const Jaeger\SAMPLER_TYPE_CONST;
 
 class FrockServiceProvider extends ServiceProvider
 {
     public function register()
     {
-        $this->commands(CreateEndpointsFromProto::class);
         $this->commands(AddProtoClassMapToComposerJson::class);
-        $this->commands(ResetNamespacesInComposerJson::class);
-        $this->commands(PrepareProtoFiles::class);
-        $this->commands(AddToArrayToGrpcObjects::class);
         $this->commands(GenerateGrafanaMetrics::class);
         $this->commands(CollectAttributesToCache::class);
         $this->commands(GenerateEndpoints::class);
@@ -46,13 +35,6 @@ class FrockServiceProvider extends ServiceProvider
         $this->app->singleton(Storage::class, Storage::class);
 
         $this->app->bind(MetricFactoryInterface::class, MetricFactory::class);
-
-        $this->app->singleton(Serializer::class, function() {
-            $encoders = [new JsonEncoder()];
-            $normalizers = [new GetSetCustomNormalizer()];
-
-            return new Serializer($normalizers, $encoders);
-        });
 
         // own laravel attributes collector
         $collector = new Collector(app());
