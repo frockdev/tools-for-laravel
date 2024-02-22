@@ -148,7 +148,7 @@ class NatsDriver
         return $response;
     }
 
-    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $period=null, $disableSpatieValidation = false) {
+    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $periodInMicroseconds=null, $disableSpatieValidation = false) {
         $controller = function (Request $request) use ($endpoint, $disableSpatieValidation) {
             $endpoint->setContext($request->headers->all());
             $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
@@ -192,12 +192,6 @@ class NatsDriver
                 $consumerName = $streamName . '-' . Str::random(4) . '-' . env('HOSTNAME') . '-' . config('app.env');
                 $consumer = $jetStream->getConsumer($consumerName);
                 $consumer->getConfiguration()->setSubjectFilter($subject);
-                if (!is_null($period)) {
-                    $consumer->setIterations(1);
-                    if (!$firstStart) {
-                        sleep($period);
-                    }
-                }
             } catch (Throwable $exception) {
                 Log::error('NatsDriver: error while creating consumer: ' . $exception->getMessage(), [
                     'exception' => $exception,
@@ -207,6 +201,12 @@ class NatsDriver
                 throw $exception;
             }
             try {
+                if (!is_null($periodInMicroseconds)) {
+                    $consumer->setIterations(1);
+                    if (!$firstStart) {
+                        usleep($periodInMicroseconds);
+                    }
+                }
                 $consumer->handle($callback);
             } catch (Throwable $exception) {
                 Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [

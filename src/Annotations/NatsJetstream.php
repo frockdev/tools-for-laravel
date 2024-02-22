@@ -16,7 +16,7 @@ class NatsJetstream
 
     public ?string $pool = null;
 
-    public ?int $period = null;
+    public ?int $periodInMicroseconds = null;
 
     public function __construct(
         string  $subject,
@@ -25,7 +25,7 @@ class NatsJetstream
         ?string $name = 'unnamed',
         int     $nums = 1,
         ?string $pool = null,
-        ?int    $period = null,
+        ?int    $periodInMicroseconds = null,
     )
     {
         $this->subject = $subject;
@@ -34,7 +34,7 @@ class NatsJetstream
         $this->name = $name;
         $this->nums = $nums;
         $this->pool = $pool;
-        $this->period = $period;
+        $this->periodInMicroseconds = $periodInMicroseconds;
     }
 
 }

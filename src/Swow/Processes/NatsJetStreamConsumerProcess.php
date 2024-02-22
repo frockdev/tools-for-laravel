@@ -10,7 +10,7 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
     private object $endpoint;
     private string $subject;
     private string $streamName;
-    private ?int $interval;
+    private ?int $periodInMicroseconds;
     private NatsDriver $driver;
     private bool $disableSpatieValidation = false;
 
@@ -18,15 +18,15 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
         object $endpoint,
         string $subject,
         string $streamName,
-        ?int  $interval=null,
-        bool $disableSpatieValidation = false
+        ?int   $periodInMicroseconds=null,
+        bool   $disableSpatieValidation = false
     )
     {
         $this->endpoint = $endpoint;
         $this->disableSpatieValidation = $disableSpatieValidation;
         $this->subject = $subject;
         $this->streamName = $streamName;
-        $this->interval = $interval;
+        $this->periodInMicroseconds = $periodInMicroseconds;
         $this->driver = new NatsDriver($subject.'_'.$streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
     }
 
@@ -36,7 +36,7 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
             subject: $this->subject,
             streamName: $this->streamName,
             endpoint: $this->endpoint,
-            period: $this->interval,
+            periodInMicroseconds: $this->periodInMicroseconds,
             disableSpatieValidation: $this->disableSpatieValidation,
         );
     }

@@ -50,7 +50,7 @@ class NatsJetstreamProcessManager {
                     app()->make($endpointClassName),
                     $attributeExemplar->subject,
                     $attributeExemplar->streamName,
-                    $attributeExemplar->period,
+                    $attributeExemplar->periodInMicroseconds,
                     $disableSpatieValidation
                 );
                 $process->setName($attributeExemplar->name . '-' . $attributeExemplar->subject.'-'.$attributeExemplar->subject);
@@ -59,9 +59,9 @@ class NatsJetstreamProcessManager {
         }
     }
 
-    private function createProcess(object $consumer, string $subject, string $stream, ?int $interval=null, bool $disableSpatieValidation=false): AbstractProcess
+    private function createProcess(object $consumer, string $subject, string $stream, ?int $periodInMicroseconds=null, bool $disableSpatieValidation=false): AbstractProcess
     {
-        return new NatsJetStreamConsumerProcess($consumer, $subject, $stream, $interval, $disableSpatieValidation);
+        return new NatsJetStreamConsumerProcess($consumer, $subject, $stream, $periodInMicroseconds, $disableSpatieValidation);
     }
 
 }
