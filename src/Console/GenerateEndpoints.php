@@ -187,7 +187,7 @@ class GenerateEndpoints extends Command
         $abstractEndpointNamespace->add($abstractEndpoint);
         $abstractEndpoint->addImplement($interfaceName);
         $abstractEndpoint->addMethod('getContext')
-            ->setBody('return ContextStorage::get("endpoint_context_".get_called_class());')
+            ->setBody('return ContextStorage::get("endpoint_context_".get_called_class()) ?? [];')
             ->setPublic()
             ->setReturnType('array');
         $abstractEndpoint->addMethod('setContext')
