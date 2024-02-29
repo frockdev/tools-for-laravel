@@ -244,9 +244,7 @@ class GenerateEndpoints extends Command
         $invoke .= '}' . "\n";
         $invoke .= '$this->callCountMetric->inc([\''.$metricLabel.'\']);'."\n";
         $invoke .= '$timeStart = microtime(true);'."\n";
-        $invoke .= '$context = $this->getContext();' . "\n" ;
-        $invoke .= '$this->setContext($context);' . "\n" .
-            '$result = $this->handle($dto);' . "\n" .
+        $invoke .= '$result = $this->handle($dto);' . "\n" .
             '$this->callDurationHistogramMetric->observe(microtime(true) - $timeStart, [\''.$metricLabel.'\']);'."\n".
             'return $result;';
         return $invoke;
