@@ -15,7 +15,7 @@ class SystemMetricsProcess extends AbstractProcess
     {
     }
 
-    protected function run(): void
+    protected function run(): bool
     {
         $allowedMemoryUsage = env('ALLOWED_MEMORY_USAGE', 200);
         $counterName = 'coroutine_count';
@@ -92,5 +92,6 @@ class SystemMetricsProcess extends AbstractProcess
                     }
                 })->run();
         }
+        return false;
     }
 }

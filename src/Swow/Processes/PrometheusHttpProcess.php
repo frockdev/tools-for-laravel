@@ -27,7 +27,7 @@ class PrometheusHttpProcess extends AbstractProcess
         return $renderer->render($this->registry->getMetricFamilySamples());
     }
 
-    protected function run(): void
+    protected function run(): bool
     {
         $host = '0.0.0.0';
         $port = 9502;
@@ -80,5 +80,6 @@ class PrometheusHttpProcess extends AbstractProcess
                 }
             }
         })->args($server, $this->registry)->run();
+        return false;
     }
 }

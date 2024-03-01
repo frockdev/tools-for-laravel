@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
 
 class HttpProcess extends AbstractProcess
 {
-    protected function run(): void
+    protected function run(): bool
     {
         $host = '0.0.0.0';
         $port = 8080;
@@ -82,5 +82,6 @@ class HttpProcess extends AbstractProcess
                 }
             }
         })->args($server)->run();
+        return false;
     }
 }

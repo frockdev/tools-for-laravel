@@ -20,7 +20,7 @@ class LivenessProcess extends AbstractProcess
 
     }
 
-    protected function run(): void
+    protected function run(): bool
     {
         $host = '0.0.0.0';
         $port = 9512;
@@ -77,5 +77,6 @@ class LivenessProcess extends AbstractProcess
                 }
             }
         })->args($server, $this->storage)->run();
+        return false;
     }
 }

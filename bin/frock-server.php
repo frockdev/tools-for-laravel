@@ -22,6 +22,7 @@ $laravelApp = $startSupport->initializeLaravel();
 
 $startSupport->loadServices(); //load services depends on mode
 
+ProcessesRegistry::runRegisteredInitProcesses();
 ProcessesRegistry::runRegisteredProcesses();
 
 \Swow\Coroutine::run(static function () use ($exitControlChannel): void {

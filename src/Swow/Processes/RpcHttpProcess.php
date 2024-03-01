@@ -22,7 +22,7 @@ class RpcHttpProcess extends AbstractProcess
         $this->routes = $routes;
     }
 
-    protected function run(): void
+    protected function run(): bool
     {
         $host = '0.0.0.0';
         $port = 8082;
@@ -116,5 +116,6 @@ class RpcHttpProcess extends AbstractProcess
                 }
             }
         })->args($server, app()->make(CommonErrorHandler::class))->run();
+        return false;
     }
 }
