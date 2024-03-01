@@ -30,7 +30,7 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
         $this->driver = new NatsDriver($subject.'_'.$streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
     }
 
-    protected function run(): void
+    protected function run(): bool
     {
         $this->driver->subscribeToJetstreamWithEndpoint(
             subject: $this->subject,
@@ -39,5 +39,6 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
             periodInMicroseconds: $this->periodInMicroseconds,
             disableSpatieValidation: $this->disableSpatieValidation,
         );
+        return false;
     }
 }

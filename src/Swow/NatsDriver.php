@@ -4,6 +4,7 @@ namespace FrockDev\ToolsForLaravel\Swow;
 
 use Basis\Nats\Message\Payload;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
+use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
 use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
 use FrockDev\ToolsForLaravel\Transport\AbstractMessage;
 use Illuminate\Contracts\Http\Kernel;
@@ -19,18 +20,19 @@ class NatsDriver
     private NewNatsClient $client;
 
     private string $name;
+    private \Basis\Nats\Configuration $currentConfig;
 
     public function __construct(string $name)
     {
-        $config = new \Basis\Nats\Configuration([
+        $this->name = $name;
+        $this->currentConfig = new \Basis\Nats\Configuration([
             'host'=>config('nats.host', env('NATS_HOST', 'nats.nats')),
             'port'=>(int)config('nats.port', env('NATS_PORT', 4222)),
             'user'=>config('nats.user', env('NATS_USER', '')),
             'pass'=>config('nats.pass', env('NATS_PASS', '')),
             'timeout'=>(float)config('nats.timeout', (float)env('NATS_TIMEOUT', 1)),
         ]);
-        $this->client = new NewNatsClient($config, $name);
-        $this->name = $name;
+        $this->client = new NewNatsClient($this->currentConfig, $this->name);
     }
 
     public function runReceiving(string $namePostfix='') {
@@ -43,6 +45,7 @@ class NatsDriver
                     Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
                         'exception' => $exception,
                     ]);
+                    Liveness::setLiveness($this->name, 500, 'Error got on receiving', Liveness::MODE_5_SEC);
                     throw $exception;
                 }
             }
@@ -186,7 +189,7 @@ class NatsDriver
         $this->runReceiving();
 
         $firstStart = true;
-        while (true) {
+        while (ContextStorage::getSystemChannel('natsReceiveChannel_'.$this->name)) {
             try {
                 $jetStream = $this->client->getApi()->getStream($streamName);
                 $consumerName = $streamName . '-' . Str::random(4) . '-' . env('HOSTNAME') . '-' . config('app.env');
@@ -262,5 +265,8 @@ class NatsDriver
             throw $exception;
         }
         $this->runReceiving();
+        while (ContextStorage::getSystemChannel('natsReceiveChannel_'.$this->name)) {
+            sleep(3);
+        }
     }
 }

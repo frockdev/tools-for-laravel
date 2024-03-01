@@ -28,7 +28,7 @@ class NatsQueueConsumerProcess extends AbstractProcess
         $this->driver = new NatsDriver($subject.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
     }
 
-    protected function run(): void
+    protected function run(): bool
     {
         $this->driver->subscribeWithEndpoint(
             $this->subject,
@@ -36,5 +36,6 @@ class NatsQueueConsumerProcess extends AbstractProcess
             $this->queueName,
             $this->disableSpatieValidation
         );
+        return false;
     }
 }
