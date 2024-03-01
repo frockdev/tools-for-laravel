@@ -24,7 +24,7 @@ class ProcessesRegistry
     {
         $waitGroup = new \Swow\Sync\WaitGroup();
         /** @var AbstractProcess $process */
-        foreach (self::$processes as $process) {
+        foreach (self::$initProcesses as $process) {
             $process->runInitProcessesInCoroutine($waitGroup);
         }
         $waitGroup->wait();

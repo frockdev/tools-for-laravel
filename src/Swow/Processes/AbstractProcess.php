@@ -51,7 +51,7 @@ abstract class AbstractProcess
                     try {
                         $result = $this->run();
                         if ($result === false) {
-                            break;
+                            return;
                         }
                     } catch (\Throwable $e) {
                         Log::critical('CRITICAL, Process ' . $this->getName() . ' failed with message: ' . $e->getMessage().'. Will sleep 5 sec and try to restart', ['throwable' => $e]);

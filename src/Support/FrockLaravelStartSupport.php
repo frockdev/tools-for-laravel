@@ -137,6 +137,7 @@ class FrockLaravelStartSupport
     private function runCustomProcesses() {
         /** @var CustomProcessManager $customProcessManager */
         $customProcessManager = app()->make(CustomProcessManager::class);
+        $customProcessManager->registerInitProcesses();
         $customProcessManager->registerProcesses();
     }
 
