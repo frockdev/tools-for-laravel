@@ -57,7 +57,6 @@ class RpcHttpProcess extends AbstractProcess
                                         ], $request->getServerParams(), $convertedHeaders);
                                         $laravelRequest = new Request(
                                             query: $request->getQueryParams(),
-                                            request: $request->getParsedBody(),
                                             attributes: array_merge($request->getAttributes(), ['transport'=>'rpc']),
                                             cookies: $request->getCookieParams(),
                                             files: $request->getUploadedFiles(),

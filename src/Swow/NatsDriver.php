@@ -135,7 +135,6 @@ class NatsDriver
 
         $laravelRequest = new Request(
             query: [],
-            request: json_decode($body, true),
             attributes: array_merge(['transport'=>'nats']),
             cookies: [],
             files: [],

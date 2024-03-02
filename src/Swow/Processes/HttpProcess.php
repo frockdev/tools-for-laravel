@@ -52,7 +52,6 @@ class HttpProcess extends AbstractProcess
                                 ], $request->getServerParams(), $convertedHeaders);
                                 $laravelRequest = new Request(
                                     query: $request->getQueryParams(),
-                                    request: $request->getParsedBody(),
                                     attributes: $request->getAttributes(),
                                     cookies: $request->getCookieParams(),
                                     files: $request->getUploadedFiles(),
