@@ -5,6 +5,7 @@ namespace FrockDev\ToolsForLaravel\Swow\Processes;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use Swow\CoroutineException;
 use Swow\Errno;
 use Swow\Http\Protocol\ProtocolException;
@@ -24,10 +25,12 @@ class HttpProcess extends AbstractProcess
 
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
+        Log::info("Http server starting at $host:$port");
         Co::define($this->name . '_server')->charge(function (Server $server) {
             while (true) {
                 try {
                     $connection = null;
+                    Log::info("Http server started. Waiting for connections...");
                     $connection = $server->acceptConnection();
                     Co::define('http_consumer')
                         ->charge(static function () use ($connection): void {
@@ -55,6 +58,7 @@ class HttpProcess extends AbstractProcess
                                     files: $request->getUploadedFiles(),
                                     server: $serverParams,
                                     content: $request->getBody()->getContents());
+                                app()->instance('request', $laravelRequest);
                                 /** @var Response $response */
                                 $response = $kernel->handle(
                                     $laravelRequest
