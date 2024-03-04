@@ -1,7 +1,19 @@
 <?php
 
 return [
-    'traceIdCtxHeader'=> env('TRACE_ID_NATS_HEADER', 'X-Trace-ID'), // todo refactor for nats only
-    'httpTraceIdCtxHeader'=> env('TRACE_ID_HTTP_HEADER', 'X-Trace-ID'),
-    'disableMetrics'=> env('FROCK_DISABLE_METRICS', false),
+    'preserveObjects'=>[
+        'config',
+        'app',
+        "path",
+        "path.base",
+        "path.config",
+        "path.database",
+        "path.public",
+        "path.resources",
+        "path.storage",
+        "path.bootstrap",
+        "path.lang",
+        "app",
+        Illuminate\Container\Container::class,
+    ],
 ];
