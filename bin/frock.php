@@ -1,6 +1,5 @@
 <?php
 
-use FrockDev\ToolsForLaravel\Application\Application;
 use FrockDev\ToolsForLaravel\Support\AppModeResolver;
 use FrockDev\ToolsForLaravel\Support\FrockLaravelStartSupport;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;

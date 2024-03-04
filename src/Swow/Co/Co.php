@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Co;
 
+use FrockDev\ToolsForLaravel\Application\RegularApplication;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Container\Container;
 use Swow\Sync\WaitGroup;
@@ -71,6 +72,7 @@ class Co
     private function runCoroutine(bool $sync = false, bool $fromMain = false) {
         if ($fromMain) {
             $currentContainer = ContextStorage::getMainApplication();
+            $currentContainer = clone $currentContainer;
         } else {
             $currentContainer = ContextStorage::getApplication();
         }
@@ -87,7 +89,7 @@ class Co
             $waitGroup = null;
         }
         $currentTraceId = ContextStorage::get('x-trace-id');
-        $coroutine = new \Swow\Coroutine(function ($callable, $newContainer, $processName, $traceId, $delay, ...$args) use ($waitGroup) {
+        $coroutine = new \Swow\Coroutine(function ($callable, RegularApplication $newContainer, $processName, $traceId, $delay, ...$args) use ($waitGroup) {
             ContextStorage::setCurrentRoutineName($processName);
             ContextStorage::setApplication($newContainer);
             if ($traceId) {
@@ -96,6 +98,18 @@ class Co
             $newContainer->instance('app', $newContainer);
             $newContainer->instance(\Illuminate\Foundation\Application::class, $newContainer);
             $newContainer->instance(Container::class, $newContainer);
+
+            $newContainer->forgetInstancesExceptThese(config('frock.preserveObjects'));
+
+            $newContainer->flushProviders();
+            $newContainer->bootstrapWith([
+                    \Illuminate\Foundation\Bootstrap\HandleExceptions::class,
+                    \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
+                    \Illuminate\Foundation\Bootstrap\SetRequestForConsole::class,
+                    \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
+                    \Illuminate\Foundation\Bootstrap\BootProviders::class,
+                ]
+            );
 
             if ($delay > 0) {
                 sleep($delay);

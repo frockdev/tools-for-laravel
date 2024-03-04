@@ -4,8 +4,9 @@ namespace FrockDev\ToolsForLaravel\Application;
 
 use Closure;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use Illuminate\Foundation\Application;
 
-class Application extends \Illuminate\Foundation\Application
+class SafeApplication extends Application
 {
     protected $safeContainerInitializationMode = false;
     public function __construct($basePath = null, $safeContainerInitialization = false)

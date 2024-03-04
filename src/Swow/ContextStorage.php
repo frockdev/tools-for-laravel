@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow;
 
+use FrockDev\ToolsForLaravel\Application\RegularApplication;
 use Illuminate\Foundation\Application;
 use Swow\Channel;
 use Swow\Coroutine;
@@ -60,9 +61,18 @@ class ContextStorage
         unset(self::$storage['routineNames'][$coroutineId]);
     }
 
-    public static function setApplication(\Illuminate\Contracts\Container\Container|Application $application): void
+    public static function setSafeContainer(\FrockDev\ToolsForLaravel\Application\SafeApplication $application) {
+        self::$storage['safeContainer'] = $application;
+    }
+
+    public static function getSafeContainer(): \FrockDev\ToolsForLaravel\Application\SafeApplication
     {
-        $coroutineId = \Swow\Coroutine::getCurrent()->getId();
+        return self::$storage['safeContainer'];
+    }
+
+    public static function setApplication(\Illuminate\Contracts\Container\Container|Application $application, int $coroutineId = null): void
+    {
+        $coroutineId = $coroutineId ?? \Swow\Coroutine::getCurrent()->getId();
         if (!self::getCurrentRoutineName()) {
             throw new \Exception('Routine name is not set');
         }
@@ -81,7 +91,7 @@ class ContextStorage
         return self::$storage['routineNames'][$coroutineId] ?? null;
     }
 
-    public static function getMainApplication(): ?Application
+    public static function getMainApplication(): ?RegularApplication
     {
         $coroutineId = Coroutine::getMain()->getId();
         $mainApp = self::$storage['containers'][$coroutineId];

@@ -10,10 +10,13 @@ use Swow\CoroutineException;
 use Swow\Errno;
 use Swow\Http\Protocol\ProtocolException;
 use Swow\Psr7\Server\Server;
+use Swow\Psr7\Server\ServerConnection;
 use Swow\Socket;
 use Swow\SocketException;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\File\File;
 
 class HttpProcess extends AbstractProcess
 {
@@ -26,56 +29,84 @@ class HttpProcess extends AbstractProcess
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
         Log::info("Http server starting at $host:$port");
-        Co::define($this->name . '_server')->charge(function (Server $server) {
+        Co::define($this->name . '_server')->charge(function: function (Server $server) {
             while (true) {
                 try {
                     $connection = null;
                     Log::info("Http server started. Waiting for connections...");
                     $connection = $server->acceptConnection();
                     Co::define('http_consumer')
-                        ->charge(static function () use ($connection): void {
+                        ->charge(function: function (ServerConnection $connection): void {
                             try {
                                 $request = $connection->recvHttpRequest();
-                                /** @var Kernel $kernel */
-                                $kernel = app()->make(Kernel::class);
                                 ContextStorage::set('x-trace-id', $request->getHeader('x-trace-id') ?? uuid_create());
                                 $convertedHeaders = [];
                                 foreach ($request->getHeaders() as $key => $header) {
                                     $convertedHeaders['HTTP_' . $key] = $header[0];
                                 }
                                 $convertedHeaders['HTTP_x-trace-id'] = ContextStorage::get('x-trace-id');
-
                                 $serverParams = array_merge([
                                     'REQUEST_URI' => $request->getUri()->getPath(),
                                     'REQUEST_METHOD' => $request->getMethod(),
                                     'QUERY_STRING' => $request->getUri()->getQuery(),
                                 ], $request->getServerParams(), $convertedHeaders);
-                                $laravelRequest = new Request(
+                                $symfonyRequest = new \Symfony\Component\HttpFoundation\Request(
                                     query: $request->getQueryParams(),
+                                    request: $request->getAttributes(),
                                     attributes: $request->getAttributes(),
                                     cookies: $request->getCookieParams(),
                                     files: $request->getUploadedFiles(),
                                     server: $serverParams,
-                                    content: $request->getBody()->getContents());
+                                    content: $request->getBody()->getContents()
+                                );
+
+                                $laravelRequest = Request::createFromBase($symfonyRequest);
                                 app()->instance('request', $laravelRequest);
+
+                                /** @var Kernel $kernel */
+                                $kernel = app()->make(Kernel::class);
                                 /** @var Response $response */
                                 $response = $kernel->handle(
                                     $laravelRequest
                                 );
 
-                                $swowResponse = new \Swow\Psr7\Message\Response();
-                                $swowResponse->setBody($response->getContent());
-                                $swowResponse->setStatus($response->getStatusCode());
-                                $swowResponse->setHeaders($response->headers->all());
-                                $swowResponse->setProtocolVersion($response->getProtocolVersion());
-
+                                if ($response instanceof BinaryFileResponse) {
+                                    $swowResponse = new \Swow\Psr7\Message\Response();
+                                    /** @var File $file */
+                                    $file = $response->getFile();
+                                    $contentOfFIle = $file->getContent();
+                                    $swowResponse->setBody($contentOfFIle);
+                                    $swowResponse->setStatus($response->getStatusCode());
+                                    $swowResponse->setHeaders($response->headers->all());
+                                    $swowResponse->setProtocolVersion($response->getProtocolVersion());
+                                } elseif ($response instanceof \Illuminate\Http\Response) {
+                                    $swowResponse = new \Swow\Psr7\Message\Response();
+                                    $swowResponse->setBody($response->getContent());
+                                    $swowResponse->setStatus($response->getStatusCode());
+                                    $swowResponse->setHeaders($response->headers->all());
+                                    $swowResponse->setProtocolVersion($response->getProtocolVersion());
+                                } elseif ($response instanceof \Illuminate\Http\RedirectResponse) {
+                                    $swowResponse = new \Swow\Psr7\Message\Response();
+                                    $swowResponse->setBody($response->getContent());
+                                    $swowResponse->setStatus($response->getStatusCode());
+                                    $swowResponse->setHeaders($response->headers->all());
+                                    $swowResponse->setProtocolVersion($response->getProtocolVersion());
+                                } elseif ($response instanceof \Illuminate\Http\JsonResponse) {
+                                    $swowResponse = new \Swow\Psr7\Message\Response();
+                                    $swowResponse->setBody($response->getContent());
+                                    $swowResponse->setStatus($response->getStatusCode());
+                                    $swowResponse->setHeaders($response->headers->all());
+                                    $swowResponse->setProtocolVersion($response->getProtocolVersion());
+                                } else {
+                                    $connection->error(510, 'Unsopported Response Type: '.get_class($response), close: true);
+                                }
                                 $connection->sendHttpResponse($swowResponse);
 
                             } catch (ProtocolException $exception) {
                                 $connection->error($exception->getCode(), $exception->getMessage(), close: true);
                             }
                             $connection->close();
-                        })->run();
+                        })->args($connection)->run();
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
                         sleep(1);

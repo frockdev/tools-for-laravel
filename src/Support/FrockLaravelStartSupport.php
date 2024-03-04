@@ -2,10 +2,14 @@
 
 namespace FrockDev\ToolsForLaravel\Support;
 
-use FrockDev\ToolsForLaravel\Application\Application;
+use App\Console\Kernel;
+use FrockDev\ToolsForLaravel\Application\RegularApplication;
+use FrockDev\ToolsForLaravel\Application\SafeApplication;
 use FrockDev\ToolsForLaravel\ExceptionHandlers\UniversalErrorHandler;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
+use FrockDev\ToolsForLaravel\Swow\Logging\CustomLogger;
+use FrockDev\ToolsForLaravel\Swow\Logging\LogMessage;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\CustomProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\HttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\LivenessProcessManager;
@@ -15,6 +19,18 @@ use FrockDev\ToolsForLaravel\Swow\ProcessManagement\RpcHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\SystemMetricsProcessManager;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Bootstrap\BootProviders;
+use Illuminate\Foundation\Bootstrap\HandleExceptions;
+use Illuminate\Foundation\Bootstrap\LoadConfiguration;
+use Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables;
+use Illuminate\Foundation\Bootstrap\RegisterFacades;
+use Illuminate\Foundation\Bootstrap\RegisterProviders;
+use Illuminate\Foundation\Bootstrap\SetRequestForConsole;
+use Illuminate\Support\Facades\Log;
+use Monolog\Formatter\JsonFormatter;
+use Swow\Channel;
 
 class FrockLaravelStartSupport
 {
@@ -25,27 +41,26 @@ class FrockLaravelStartSupport
         $this->appModeResolver = $appModeResolver;
     }
 
-    private function bootstrapApplication(): \Illuminate\Foundation\Application {
+    private function bootstrapApplication(): Application {
 
-        $safeApp = new Application(
+        $safelyWrappedApp = new SafeApplication(
             realpath(dirname($GLOBALS['_composer_autoload_path']).'/../'),
             true
         );
-        $safeApp->disableSafeContainerInitializationMode();
+        $safelyWrappedApp->disableSafeContainerInitializationMode();
+        ContextStorage::setSafeContainer($safelyWrappedApp);
 
-
-        $unsafeApp = new \Illuminate\Foundation\Application(
+        $mainRegularApplication = new RegularApplication(
             realpath(dirname($GLOBALS['_composer_autoload_path']).'/../')
         );
 
 
-        \Illuminate\Foundation\Application::setInstance($safeApp);
+        Application::setInstance($safelyWrappedApp);
 
-        Container::setInstance($safeApp);
-
+        Container::setInstance($safelyWrappedApp);
 
         ContextStorage::setCurrentRoutineName('main');
-        ContextStorage::setApplication($unsafeApp);
+        ContextStorage::setApplication($mainRegularApplication);
 
         /*
         |--------------------------------------------------------------------------
@@ -58,18 +73,18 @@ class FrockLaravelStartSupport
         |
         */
 
-        $unsafeApp->singleton(
+        $mainRegularApplication->singleton(
             \Illuminate\Contracts\Http\Kernel::class,
             \App\Http\Kernel::class
         );
 
-        $unsafeApp->singleton(
+        $mainRegularApplication->singleton(
             \Illuminate\Contracts\Console\Kernel::class,
-            \App\Console\Kernel::class
+            Kernel::class
         );
 
-        $unsafeApp->singleton(
-            \Illuminate\Contracts\Debug\ExceptionHandler::class,
+        $mainRegularApplication->singleton(
+            ExceptionHandler::class,
             UniversalErrorHandler::class
         );
 
@@ -84,31 +99,31 @@ class FrockLaravelStartSupport
         |
         */
 
-        return $unsafeApp;
+        return $mainRegularApplication;
 
     }
 
-    public function initializeLaravel(bool $console = false): \Illuminate\Foundation\Application
+    public function initializeLaravel(bool $console = false): Application
     {
         $app = $this->bootstrapApplication();
         if ($console===true) {
             $app->bootstrapWith([
-                \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
-                \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
-                \Illuminate\Foundation\Bootstrap\HandleExceptions::class,
-                \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
-                \Illuminate\Foundation\Bootstrap\SetRequestForConsole::class,
-                \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
-                \Illuminate\Foundation\Bootstrap\BootProviders::class,
+                LoadEnvironmentVariables::class,
+                LoadConfiguration::class,
+                HandleExceptions::class,
+                RegisterFacades::class,
+                SetRequestForConsole::class,
+                RegisterProviders::class,
+                BootProviders::class,
             ]);
         } else {
             $app->bootstrapWith([
-                \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
-                \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
-                \Illuminate\Foundation\Bootstrap\HandleExceptions::class,
-                \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
-                \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
-                \Illuminate\Foundation\Bootstrap\BootProviders::class,
+                LoadEnvironmentVariables::class,
+                LoadConfiguration::class,
+                HandleExceptions::class,
+                RegisterFacades::class,
+                RegisterProviders::class,
+                BootProviders::class,
             ]);
         }
         return $app;
@@ -146,20 +161,20 @@ class FrockLaravelStartSupport
         config(['logging.channels.custom'=> [
             'driver' => 'custom',
             'level'=>env('LOG_LEVEL', 'error'),
-            'via' => \FrockDev\ToolsForLaravel\Swow\Logging\CustomLogger::class,
+            'via' => CustomLogger::class,
         ]]);
-        config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER',\Monolog\Formatter\JsonFormatter::class)]);
+        config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER', JsonFormatter::class)]);
         config(['logging.default'=>'custom']);
 
         Co::define('main-logger')
             ->charge(function() {
-            $channel = new \Swow\Channel(1000);
+            $channel = new Channel(1000);
             ContextStorage::setSystemChannel('log', $channel);
 
-            /** @var \FrockDev\ToolsForLaravel\Swow\Logging\LogMessage $message */
+            /** @var LogMessage $message */
             while ($message = $channel->pop()) {
                 if ($message->severity===null) continue;
-                \Illuminate\Support\Facades\Log
+                Log
                     ::driver('stderr')->log(
                         $message->severity,
                         $message->message,

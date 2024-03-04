@@ -48,21 +48,24 @@ class RpcHttpProcess extends AbstractProcess
                                         }
                                         $convertedHeaders['HTTP_x-trace-id'] = ContextStorage::get('x-trace-id');
 
-                                        /** @var Kernel $kernel */
-                                        $kernel = app()->make(Kernel::class);
                                         $serverParams = array_merge([
                                             'REQUEST_URI'=> $request->getUri()->getPath(),
                                             'REQUEST_METHOD'=> $request->getMethod(),
                                             'QUERY_STRING'=> $request->getUri()->getQuery(),
                                         ], $request->getServerParams(), $convertedHeaders);
-                                        $laravelRequest = new Request(
+                                        $symfonyRequest = new \Symfony\Component\HttpFoundation\Request(
                                             query: $request->getQueryParams(),
-                                            attributes: array_merge($request->getAttributes(), ['transport'=>'rpc']),
+                                            request: $request->getAttributes(),
+                                            attributes: $request->getAttributes(),
                                             cookies: $request->getCookieParams(),
                                             files: $request->getUploadedFiles(),
                                             server: $serverParams,
-                                            content: $request->getBody()->getContents());
+                                            content: $request->getBody()->getContents()
+                                        );
+                                        $laravelRequest = Request::createFromBase($symfonyRequest);
                                         app()->instance('request', $laravelRequest);
+                                        /** @var Kernel $kernel */
+                                        $kernel = app()->make(Kernel::class);
                                         /** @var \Illuminate\Http\Response $response */
                                         $response = $kernel->handle(
                                             $laravelRequest
