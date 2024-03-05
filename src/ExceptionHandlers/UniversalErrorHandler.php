@@ -5,6 +5,7 @@ namespace FrockDev\ToolsForLaravel\ExceptionHandlers;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Foundation\Exceptions\Handler;
+use Swow\Coroutine;
 
 class UniversalErrorHandler extends Handler
 {
@@ -36,13 +37,18 @@ class UniversalErrorHandler extends Handler
     }
 
     public function report(\Throwable $e) {
-        if (request()->attributes->get('transport')==='rpc') {
+        if (!app()->has('request')) {
             parent::report($e);
-        } elseif (request()->attributes->get('transport')==='nats') {
-            //report each one
-            $this->reportThrowable($e);
+            echo Coroutine::getCurrent()->getTraceAsString();
         } else {
-            parent::report($e);
+            if (request()->attributes->get('transport')==='rpc') {
+                parent::report($e);
+            } elseif (request()->attributes->get('transport')==='nats') {
+                //report each one
+                $this->reportThrowable($e);
+            } else {
+                parent::report($e);
+            }
         }
     }
 }
