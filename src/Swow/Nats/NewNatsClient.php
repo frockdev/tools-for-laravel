@@ -169,7 +169,7 @@ class NewNatsClient
 
         try {
             $this->socket = new Socket(Socket::TYPE_TCP);
-            $this->socket->connect($this->configuration->host, $this->configuration->port, 10);
+            $this->socket->connect($this->configuration->host, $this->configuration->port, 10000);
         } catch (SocketException $e) {
             Log::error('Socket error: ' . $e->getMessage(), ['exception' => $e]);
             $this->socket = null;
@@ -229,10 +229,9 @@ class NewNatsClient
         Liveness::setLiveness($this->clientName, 200, 'Pong received', Liveness::MODE_5_SEC);
     }
 
-    public function startReceiving(): void {
-        ContextStorage::setSystemChannel('natsReceiveChannel_'.$this->clientName, new Channel());
+    public function startReceiving(Channel $systemChannel): void {
         try {
-            $natsSystemChannel = ContextStorage::getSystemChannel('natsReceiveChannel_' . $this->clientName);
+            $natsSystemChannel = $systemChannel;
             while (true) {
                 if ($natsSystemChannel->getLength() > 0) {
                     $systemMessage = $natsSystemChannel->pop();
