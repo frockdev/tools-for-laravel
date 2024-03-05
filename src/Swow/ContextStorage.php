@@ -2,7 +2,6 @@
 
 namespace FrockDev\ToolsForLaravel\Swow;
 
-use FrockDev\ToolsForLaravel\Application\RegularApplication;
 use Illuminate\Foundation\Application;
 use Swow\Channel;
 use Swow\Coroutine;
@@ -12,7 +11,16 @@ class ContextStorage
     static private array $storage = [
         'systemChannels' => [],
         'containers' => [],
+        'interStreamInstances' => [],
     ];
+
+    public static function setInterStreamInstance($abstract, $instance) {
+        self::$storage['interStreamInstances'][$abstract] = $instance;
+    }
+
+    public static function getInterStreamInstances() {
+        return self::$storage['interStreamInstances'];
+    }
 
     public static function removeSystemChannel(string $name): void
     {
@@ -61,15 +69,6 @@ class ContextStorage
         unset(self::$storage['routineNames'][$coroutineId]);
     }
 
-    public static function setSafeContainer(\FrockDev\ToolsForLaravel\Application\SafeApplication $application) {
-        self::$storage['safeContainer'] = $application;
-    }
-
-    public static function getSafeContainer(): \FrockDev\ToolsForLaravel\Application\SafeApplication
-    {
-        return self::$storage['safeContainer'];
-    }
-
     public static function setApplication(\Illuminate\Contracts\Container\Container|Application $application, int $coroutineId = null): void
     {
         $coroutineId = $coroutineId ?? \Swow\Coroutine::getCurrent()->getId();
@@ -91,7 +90,7 @@ class ContextStorage
         return self::$storage['routineNames'][$coroutineId] ?? null;
     }
 
-    public static function getMainApplication(): ?RegularApplication
+    public static function getMainApplication(): ?Application
     {
         $coroutineId = Coroutine::getMain()->getId();
         $mainApp = self::$storage['containers'][$coroutineId];
