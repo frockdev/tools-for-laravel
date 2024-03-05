@@ -3,8 +3,6 @@
 namespace FrockDev\ToolsForLaravel\Support;
 
 use App\Console\Kernel;
-use FrockDev\ToolsForLaravel\Application\RegularApplication;
-use FrockDev\ToolsForLaravel\Application\SafeApplication;
 use FrockDev\ToolsForLaravel\ExceptionHandlers\UniversalErrorHandler;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
@@ -18,18 +16,14 @@ use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsQueueProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\RpcHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\SystemMetricsProcessManager;
-use Illuminate\Container\Container;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Bootstrap\BootProviders;
-use Illuminate\Foundation\Bootstrap\HandleExceptions;
-use Illuminate\Foundation\Bootstrap\LoadConfiguration;
-use Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables;
-use Illuminate\Foundation\Bootstrap\RegisterFacades;
 use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\Bootstrap\SetRequestForConsole;
 use Illuminate\Support\Facades\Log;
 use Monolog\Formatter\JsonFormatter;
+use ReflectionObject;
 use Swow\Channel;
 
 class FrockLaravelStartSupport
@@ -43,24 +37,10 @@ class FrockLaravelStartSupport
 
     private function bootstrapApplication(): Application {
 
-        $safelyWrappedApp = new SafeApplication(
-            realpath(dirname($GLOBALS['_composer_autoload_path']).'/../'),
-            true
+
+        $mainRegularApplication = new \Illuminate\Foundation\Application(
+            dirname($GLOBALS['_composer_autoload_path']).'/../'
         );
-        $safelyWrappedApp->disableSafeContainerInitializationMode();
-        ContextStorage::setSafeContainer($safelyWrappedApp);
-
-        $mainRegularApplication = new RegularApplication(
-            realpath(dirname($GLOBALS['_composer_autoload_path']).'/../')
-        );
-
-
-        Application::setInstance($safelyWrappedApp);
-
-        Container::setInstance($safelyWrappedApp);
-
-        ContextStorage::setCurrentRoutineName('main');
-        ContextStorage::setApplication($mainRegularApplication);
 
         /*
         |--------------------------------------------------------------------------
@@ -103,30 +83,57 @@ class FrockLaravelStartSupport
 
     }
 
+    public function getInterStreamInstance() {
+        return [
+            \FrockDev\ToolsForLaravel\Swow\Liveness\Storage::class,
+        ];
+    }
+
     public function initializeLaravel(bool $console = false): Application
     {
         $app = $this->bootstrapApplication();
-        if ($console===true) {
-            $app->bootstrapWith([
-                LoadEnvironmentVariables::class,
-                LoadConfiguration::class,
-                HandleExceptions::class,
-                RegisterFacades::class,
-                SetRequestForConsole::class,
-                RegisterProviders::class,
-                BootProviders::class,
-            ]);
-        } else {
-            $app->bootstrapWith([
-                LoadEnvironmentVariables::class,
-                LoadConfiguration::class,
-                HandleExceptions::class,
-                RegisterFacades::class,
-                RegisterProviders::class,
-                BootProviders::class,
-            ]);
+        $method = (new ReflectionObject(
+            $kernel = $app->make(HttpKernelContract::class)
+        ))->getMethod('bootstrappers');
+
+        $method->setAccessible(true);
+
+        $bootstrappers = $this->injectBootstrapperBefore(
+            RegisterProviders::class,
+            SetRequestForConsole::class,
+            $method->invoke($kernel)
+        );
+
+        $app->bootstrapWith($bootstrappers);
+
+        $app->loadDeferredProviders();
+
+        foreach ($this->getInterStreamInstance() as $className) {
+            if (trim($className)=='') continue;
+            $instance = $app->make($className);
+            ContextStorage::setInterStreamInstance(get_class($instance), $instance);
+        }
+
+        foreach (config('frock.interStreamInstances') as $key) {
+            if (trim($key)=='') continue;
+            $instance = $app->make($key);
+            ContextStorage::setInterStreamInstance(get_class($instance), $instance);
         }
         return $app;
+    }
+
+    /**
+     * Inject a given bootstrapper before another bootstrapper.
+     */
+    protected function injectBootstrapperBefore(string $before, string $inject, array $bootstrappers): array
+    {
+        $injectIndex = array_search($before, $bootstrappers, true);
+
+        if ($injectIndex !== false) {
+            array_splice($bootstrappers, $injectIndex, 0, [$inject]);
+        }
+
+        return $bootstrappers;
     }
 
     public function loadServicesForArtisan() {
@@ -157,7 +164,6 @@ class FrockLaravelStartSupport
     }
 
     public function runLoggerService() {
-
         config(['logging.channels.custom'=> [
             'driver' => 'custom',
             'level'=>env('LOG_LEVEL', 'error'),
@@ -165,12 +171,10 @@ class FrockLaravelStartSupport
         ]]);
         config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER', JsonFormatter::class)]);
         config(['logging.default'=>'custom']);
-
+        $channel = new Channel(1000);
+        ContextStorage::setSystemChannel('log', $channel);
         Co::define('main-logger')
-            ->charge(function() {
-            $channel = new Channel(1000);
-            ContextStorage::setSystemChannel('log', $channel);
-
+            ->charge(function($channel) {
             /** @var LogMessage $message */
             while ($message = $channel->pop()) {
                 if ($message->severity===null) continue;
@@ -181,7 +185,7 @@ class FrockLaravelStartSupport
                         $message->context
                     );
             }
-        })->run();
+        })->args($channel)->runWithClonedDiContainer();
     }
 
     private function loadNatsService()
