@@ -2,8 +2,11 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Co;
 
+use FrockDev\ToolsForLaravel\Swow\CleanEvents\ContainerCreated;
+use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Container\Container;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use Swow\Sync\WaitGroup;
@@ -71,19 +74,19 @@ class Co
             $waitGroup = null;
         }
         if ($this->needCloneDiContainer) {
-            $currentContainer = ContextStorage::getMainApplication();
-            $newContainer = clone ($currentContainer);
+            $oldContainer = ContextStorage::getMainApplication();
+            $newContainer = clone ($oldContainer);
         } else {
             $newContainer = ContextStorage::getApplication();
         }
         $currentTraceId = ContextStorage::get('x-trace-id');
-        $coroutine = new \Swow\Coroutine(function ($callable, Application $newContainer, $processName, $traceId, $delay, ...$args) use ($waitGroup) {
+        $coroutine = new \Swow\Coroutine(function ($callable, Application $newContainer, $processName, $traceId, $delay, $oldContainer, ...$args) use ($waitGroup) {
             ContextStorage::setCurrentRoutineName($processName);
             ContextStorage::setApplication($newContainer);
             if ($traceId) {
                 ContextStorage::set('x-trace-id', $traceId);
             }
-            if ($this->needCloneDiContainer) {
+            if ($this->needCloneDiContainer && $oldContainer) {
                 $newContainer->instance('app', $newContainer);
                 $newContainer->instance(\Illuminate\Foundation\Application::class, $newContainer);
                 $newContainer->instance(Container::class, $newContainer);
@@ -91,6 +94,9 @@ class Co
 
                 Facade::clearResolvedInstances();
                 Facade::setFacadeApplication($newContainer);
+
+                $this->addEventsToNewContainer($newContainer);
+                $this->fireContainerClonedEvent($oldContainer, $newContainer);
 
                 foreach (ContextStorage::getInterStreamInstances() as $key => $instance) {
                     $newContainer->instance($key, $instance);
@@ -105,9 +111,84 @@ class Co
             ContextStorage::clearStorage();
             $waitGroup?->done();
         });
-        $coroutine->resume($this->function, $newContainer, $this->name, $currentTraceId, $this->delaySeconds, ...$this->args);
+        $coroutine->resume($this->function, $newContainer, $this->name, $currentTraceId, $this->delaySeconds, $oldContainer??null, ...$this->args);
         if ($sync===true) {
             $waitGroup->wait();
         }
+    }
+
+    private function addEventsToNewContainer(Application $newContainer)
+    {
+        /** @var Dispatcher $dispatcher */
+        $dispatcher = $newContainer->make(\Illuminate\Contracts\Events\Dispatcher::class);
+
+        $events = [
+//            \Laravel\Octane\Listeners\CreateConfigurationSandbox::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToAuthorizationGate::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToBroadcastManager::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToDatabaseManager::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToDatabaseSessionHandler::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToFilesystemManager::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToHttpKernel::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToMailManager::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToNotificationChannelManager::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToPipelineHub::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToCacheManager::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToSessionManager::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToQueueManager::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToRouter::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToValidationFactory::class,
+            \Laravel\Octane\Listeners\GiveNewApplicationInstanceToViewFactory::class,
+            \Laravel\Octane\Listeners\FlushDatabaseRecordModificationState::class,
+            \Laravel\Octane\Listeners\FlushDatabaseQueryLog::class,
+            \Laravel\Octane\Listeners\RefreshQueryDurationHandling::class,
+            \Laravel\Octane\Listeners\FlushLogContext::class,
+            \Laravel\Octane\Listeners\FlushArrayCache::class,
+            \Laravel\Octane\Listeners\FlushMonologState::class,
+            \Laravel\Octane\Listeners\FlushStrCache::class,
+            \Laravel\Octane\Listeners\FlushTranslatorCache::class,
+
+            // First-Party Packages...
+            \Laravel\Octane\Listeners\PrepareInertiaForNextOperation::class,
+            \Laravel\Octane\Listeners\PrepareLivewireForNextOperation::class,
+            \Laravel\Octane\Listeners\PrepareScoutForNextOperation::class,
+            \Laravel\Octane\Listeners\PrepareSocialiteForNextOperation::class,
+
+
+            \Laravel\Octane\Listeners\FlushLocaleState::class,
+            \Laravel\Octane\Listeners\FlushQueuedCookies::class,
+            \Laravel\Octane\Listeners\FlushSessionState::class,
+            \Laravel\Octane\Listeners\FlushAuthenticationState::class,
+
+
+
+//            \Laravel\Octane\Listeners\EnforceRequestScheme::class,
+//            \Laravel\Octane\Listeners\EnsureRequestServerPortMatchesScheme::class,
+//            \Laravel\Octane\Listeners\GiveNewRequestInstanceToApplication::class,
+//            \Laravel\Octane\Listeners\GiveNewRequestInstanceToPaginator::class,
+        ];
+
+        foreach ($events as $event) {
+            $dispatcher->listen(ContainerCreated::class, $event);
+        }
+    }
+
+    private function registerOnRequestEventHandlers(Application $newApp) {
+        $events = [
+            \Laravel\Octane\Listeners\GiveNewRequestInstanceToApplication::class,
+            \Laravel\Octane\Listeners\GiveNewRequestInstanceToPaginator::class,
+        ];
+        /** @var Dispatcher $dispatcher */
+        $dispatcher = $newApp->make(\Illuminate\Contracts\Events\Dispatcher::class);
+        foreach ($events as $event) {
+            $dispatcher->listen(RequestStartedHandling::class, $event);
+        }
+    }
+
+    private function fireContainerClonedEvent(Application $oldApp, Application $newApp)
+    {
+        /** @var Dispatcher $dispatcher */
+        $dispatcher = $newApp->make(\Illuminate\Contracts\Events\Dispatcher::class);
+        $dispatcher->dispatch(new ContainerCreated($oldApp, $newApp));
     }
 }
