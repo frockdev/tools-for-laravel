@@ -29,7 +29,7 @@ class FrockServiceProvider extends ServiceProvider
         $this->commands(GenerateHttpFiles::class);
 
         $this->app->singleton(\Prometheus\CollectorRegistry::class, function() {
-            return new \Prometheus\CollectorRegistry(new InMemory());
+            return new \Prometheus\CollectorRegistry($this->app->make(InMemory::class));
         });
 
         $this->app->singleton(Storage::class, Storage::class);
