@@ -2,9 +2,10 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Co;
 
-use FrockDev\ToolsForLaravel\Application\RegularApplication;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Container\Container;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Facade;
 use Swow\Sync\WaitGroup;
 
 class Co
@@ -16,11 +17,8 @@ class Co
     /**
      * @var true
      */
-    private bool $safe = true;
-    /**
-     * @var true
-     */
-    private bool $fromMain = false;
+    private bool $needCloneDiContainer = false;
+    
     /**
      * @var true
      */
@@ -39,11 +37,7 @@ class Co
         $this->function = $function;
         return $this;
     }
-
-    public function forkMain() {
-        $this->fromMain = true;
-        return $this;
-    }
+    
 
     public function delaySeconds(int $seconds) {
         $this->delaySeconds = $seconds;
@@ -55,61 +49,53 @@ class Co
         return $this;
     }
 
-    public function unsafe() {
-        $this->safe = false;
-        return $this;
-    }
-
     public function sync() {
         $this->sync = true;
         return $this;
     }
 
     public function run() {
-        $this->runCoroutine(sync: $this->sync, fromMain: $this->fromMain);
+        $this->runCoroutine(sync: $this->sync);
     }
 
-    private function runCoroutine(bool $sync = false, bool $fromMain = false) {
-        if ($fromMain) {
-            $currentContainer = ContextStorage::getMainApplication();
-            $currentContainer = clone $currentContainer;
-        } else {
-            $currentContainer = ContextStorage::getApplication();
-        }
+    public function runWithClonedDiContainer() {
+        $this->needCloneDiContainer = true;
+        $this->runCoroutine(sync: $this->sync);
+    }
 
-        if ($this->safe) {
-            $newContainer = clone ($currentContainer);
-        } else {
-            $newContainer = $currentContainer;
-        }
+    private function runCoroutine(bool $sync = false) {
         if ($sync===true) {
             $waitGroup = new WaitGroup();
             $waitGroup->add();
         } else {
             $waitGroup = null;
         }
+        if ($this->needCloneDiContainer) {
+            $currentContainer = ContextStorage::getMainApplication();
+            $newContainer = clone ($currentContainer);
+        } else {
+            $newContainer = ContextStorage::getApplication();
+        }
         $currentTraceId = ContextStorage::get('x-trace-id');
-        $coroutine = new \Swow\Coroutine(function ($callable, RegularApplication $newContainer, $processName, $traceId, $delay, ...$args) use ($waitGroup) {
+        $coroutine = new \Swow\Coroutine(function ($callable, Application $newContainer, $processName, $traceId, $delay, ...$args) use ($waitGroup) {
             ContextStorage::setCurrentRoutineName($processName);
             ContextStorage::setApplication($newContainer);
             if ($traceId) {
                 ContextStorage::set('x-trace-id', $traceId);
             }
-            $newContainer->instance('app', $newContainer);
-            $newContainer->instance(\Illuminate\Foundation\Application::class, $newContainer);
-            $newContainer->instance(Container::class, $newContainer);
+            if ($this->needCloneDiContainer) {
+                $newContainer->instance('app', $newContainer);
+                $newContainer->instance(\Illuminate\Foundation\Application::class, $newContainer);
+                $newContainer->instance(Container::class, $newContainer);
+                Container::setInstance($newContainer);
 
-            $newContainer->forgetInstancesExceptThese(config('frock.preserveObjects'));
+                Facade::clearResolvedInstances();
+                Facade::setFacadeApplication($newContainer);
 
-            $newContainer->flushProviders();
-            $newContainer->bootstrapWith([
-                    \Illuminate\Foundation\Bootstrap\HandleExceptions::class,
-                    \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
-                    \Illuminate\Foundation\Bootstrap\SetRequestForConsole::class,
-                    \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
-                    \Illuminate\Foundation\Bootstrap\BootProviders::class,
-                ]
-            );
+                foreach (ContextStorage::getInterStreamInstances() as $key => $instance) {
+                    $newContainer->instance($key, $instance);
+                }
+            }
 
             if ($delay > 0) {
                 sleep($delay);
@@ -120,5 +106,8 @@ class Co
             $waitGroup?->done();
         });
         $coroutine->resume($this->function, $newContainer, $this->name, $currentTraceId, $this->delaySeconds, ...$this->args);
+        if ($sync===true) {
+            $waitGroup->wait();
+        }
     }
 }
