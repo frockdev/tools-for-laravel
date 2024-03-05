@@ -3,6 +3,7 @@
 namespace FrockDev\ToolsForLaravel\Swow;
 
 use Basis\Nats\Message\Payload;
+use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
 use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
@@ -142,7 +143,8 @@ class NatsDriver
             server: $serverParams,
             content: $body
         );
-        app()->instance('request', $laravelRequest);
+        $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+        $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
         Log::debug('Request got from Nats:', ['request'=>$laravelRequest]);
         $response =  $kernel->handle(
             $laravelRequest
