@@ -36,11 +36,12 @@ class NatsDriver
     }
 
     public function runReceiving(string $namePostfix='') {
+        ContextStorage::setSystemChannel('natsReceiveChannel_'.$this->name, new Channel());
         Co::define($this->name.'_nats_receiving_'.$namePostfix)
             ->charge(function () {
             while(true) {
                 try {
-                    $this->client->startReceiving();
+                    $this->client->startReceiving(ContextStorage::getSystemChannel('natsReceiveChannel_'.$this->name));
                 } catch (Throwable $exception) {
                     Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
                         'exception' => $exception,
@@ -174,7 +175,7 @@ class NatsDriver
                     $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, stream: $streamName)
                 );
             })->args($subject, $payload, $streamName)
-                ->run();
+                ->runWithClonedDiContainer();
 
             return $resultChannel->pop();
         };
@@ -198,8 +199,6 @@ class NatsDriver
                 Log::error('NatsDriver: error while creating consumer: ' . $exception->getMessage(), [
                     'exception' => $exception,
                 ]);
-
-                ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode() > 0 ? $exception->getCode() : 700);
                 throw $exception;
             }
             try {
@@ -215,13 +214,11 @@ class NatsDriver
                     'exception' => $exception,
                 ]);
 
-                ContextStorage::getSystemChannel('exitChannel')->push($exception->getCode()>0?$exception->getCode():700);
                 throw $exception;
             } finally {
                 $consumer->delete();
                 $firstStart = false;
             }
-
         }
     }
 
@@ -249,7 +246,7 @@ class NatsDriver
                     $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, queue: $queue)
                 );
             })->args($subject, $payload, $queue)
-                ->run();
+                ->runWithClonedDiContainer();
             return $resultChannel->pop();
         };
         try {
