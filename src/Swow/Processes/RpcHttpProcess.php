@@ -108,7 +108,7 @@ class RpcHttpProcess extends AbstractProcess
                         } finally {
                             $connection->close();
                         }
-                    })->run();
+                    })->runWithClonedDiContainer();
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
                         sleep(1);

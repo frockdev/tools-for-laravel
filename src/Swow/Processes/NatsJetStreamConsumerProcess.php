@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
 use Illuminate\Support\Str;
 
@@ -27,18 +28,21 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
         $this->subject = $subject;
         $this->streamName = $streamName;
         $this->periodInMicroseconds = $periodInMicroseconds;
-        $this->driver = new NatsDriver($subject.'_'.$streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
     }
 
     protected function run(): bool
     {
-        $this->driver->subscribeToJetstreamWithEndpoint(
-            subject: $this->subject,
-            streamName: $this->streamName,
-            endpoint: $this->endpoint,
-            periodInMicroseconds: $this->periodInMicroseconds,
-            disableSpatieValidation: $this->disableSpatieValidation,
-        );
+        Co::define($this->name.'_JetstreamConsumerProcess'.$this->subject.'_'.$this->streamName.'_'.Str::random())
+            ->charge(function () {
+                $driver = new NatsDriver($this->subject.'_'.$this->streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
+                $driver->subscribeToJetstreamWithEndpoint(
+                    subject: $this->subject,
+                    streamName: $this->streamName,
+                    endpoint: $this->endpoint,
+                    periodInMicroseconds: $this->periodInMicroseconds,
+                    disableSpatieValidation: $this->disableSpatieValidation,
+                );
+            })->runWithClonedDiContainer();
         return false;
     }
 }

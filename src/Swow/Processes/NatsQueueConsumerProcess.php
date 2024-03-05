@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
 use Illuminate\Support\Str;
 
@@ -25,17 +26,21 @@ class NatsQueueConsumerProcess extends AbstractProcess
         $this->subject = $subject;
         $this->queueName = $queueName;
         $this->disableSpatieValidation = $disableSpatieValidation;
-        $this->driver = new NatsDriver($subject.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
     }
 
     protected function run(): bool
     {
-        $this->driver->subscribeWithEndpoint(
-            $this->subject,
-            $this->endpoint,
-            $this->queueName,
-            $this->disableSpatieValidation
-        );
+        Co::define($this->name . '_ConsumerProcess' . $this->subject . '_' . Str::random())
+            ->charge(function () {
+                $driver = new NatsDriver($this->subject . '_' . Str::random());
+                $driver->subscribeWithEndpoint(
+                    $this->subject,
+                    $this->endpoint,
+                    $this->queueName,
+                    $this->disableSpatieValidation
+                );
+            })
+            ->runWithClonedDiContainer();
         return false;
     }
 }

@@ -76,7 +76,7 @@ class LivenessProcess extends AbstractProcess
                     }
                 }
             }
-        })->args($server, $this->storage)->run();
+        })->args($server, $this->storage)->runWithClonedDiContainer();
         return false;
     }
 }

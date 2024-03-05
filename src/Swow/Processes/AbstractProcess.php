@@ -39,8 +39,7 @@ abstract class AbstractProcess
                 }
             })
             ->args($group)
-            ->forkMain()
-            ->run();
+            ->runWithClonedDiContainer();
     }
 
     public function runProcessInCoroutine(): void
@@ -59,8 +58,7 @@ abstract class AbstractProcess
                     }
                 }
             })
-            ->forkMain()
-            ->run();
+            ->runWithClonedDiContainer();
     }
 
     abstract protected function run(): bool;

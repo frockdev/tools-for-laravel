@@ -30,7 +30,7 @@ class SystemMetricsProcess extends AbstractProcess
                     $coroutineGauge->set(Coroutine::count());
                     sleep(1);
                 }
-            })->run();
+            })->runWithClonedDiContainer();
 
         $counterName = 'contextual_storage_count';
         Co::define($this->getName() . '_' . $counterName)
@@ -44,7 +44,7 @@ class SystemMetricsProcess extends AbstractProcess
                     $coroutineGauge->set(ContextStorage::getStorageCountForMetric());
                     sleep(1);
                 }
-            })->run();
+            })->runWithClonedDiContainer();
 
         $counterName = 'di_containers_count';
         Co::define($this->getName() . '_' . $counterName)
@@ -58,7 +58,7 @@ class SystemMetricsProcess extends AbstractProcess
                     $coroutineGauge->set(ContextStorage::getContainersCountForMetric());
                     sleep(1);
                 }
-            })->run();
+            })->runWithClonedDiContainer();
 
         $counterName = 'memory_usage';
         Co::define($this->getName() . '_' . $counterName)
@@ -72,7 +72,7 @@ class SystemMetricsProcess extends AbstractProcess
                     $coroutineGauge->set(memory_get_usage() / 1024 / 1024);
                     sleep(1);
                 }
-            })->run();
+            })->runWithClonedDiContainer();
 
         if (function_exists('gc_enabled') && gc_enabled()) {
             $counterName = 'gc_cycles_collected_count';
@@ -90,7 +90,7 @@ class SystemMetricsProcess extends AbstractProcess
                         }
                         sleep(30);
                     }
-                })->run();
+                })->runWithClonedDiContainer();
         }
         return false;
     }

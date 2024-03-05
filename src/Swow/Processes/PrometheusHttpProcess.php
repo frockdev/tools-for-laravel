@@ -79,7 +79,7 @@ class PrometheusHttpProcess extends AbstractProcess
                     }
                 }
             }
-        })->args($server, $this->registry)->run();
+        })->args($server, $this->registry)->runWithClonedDiContainer();
         return false;
     }
 }

@@ -106,7 +106,7 @@ class HttpProcess extends AbstractProcess
                                 $connection->error($exception->getCode(), $exception->getMessage(), close: true);
                             }
                             $connection->close();
-                        })->args($connection)->run();
+                        })->args($connection)->runWithClonedDiContainer();
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
                         sleep(1);
@@ -115,7 +115,7 @@ class HttpProcess extends AbstractProcess
                     }
                 }
             }
-        })->args($server)->run();
+        })->args($server)->runWithClonedDiContainer();
         return false;
     }
 }
