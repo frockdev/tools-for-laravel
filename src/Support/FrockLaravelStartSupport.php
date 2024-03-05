@@ -23,6 +23,7 @@ use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\Bootstrap\SetRequestForConsole;
 use Illuminate\Support\Facades\Log;
 use Monolog\Formatter\JsonFormatter;
+use Prometheus\Storage\InMemory;
 use ReflectionObject;
 use Swow\Channel;
 
@@ -86,6 +87,7 @@ class FrockLaravelStartSupport
     public function getInterStreamInstance() {
         return [
             \FrockDev\ToolsForLaravel\Swow\Liveness\Storage::class,
+            InMemory::class,
         ];
     }
 
@@ -114,11 +116,14 @@ class FrockLaravelStartSupport
             ContextStorage::setInterStreamInstance(get_class($instance), $instance);
         }
 
-        foreach (config('frock.interStreamInstances') as $key) {
-            if (trim($key)=='') continue;
-            $instance = $app->make($key);
-            ContextStorage::setInterStreamInstance(get_class($instance), $instance);
+        if (config('frock.interStreamInstances')) {
+            foreach (config('frock.interStreamInstances') as $key) {
+                if (trim($key)=='') continue;
+                $instance = $app->make($key);
+                ContextStorage::setInterStreamInstance(get_class($instance), $instance);
+            }
         }
+
         return $app;
     }
 
