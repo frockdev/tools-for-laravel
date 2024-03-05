@@ -17,7 +17,7 @@
         "promphp/prometheus_client_php": "^2.8",
         "barryvdh/laravel-ide-helper": "v2.13.0",
         "swow/swow": "^1.4",
-        "laravel/octane": "^2.4"
+        "laravel/octane": "^2.3.4"
     },
     "require-dev": {
     },
