@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Http\Response;
@@ -61,7 +62,9 @@ class HttpProcess extends AbstractProcess
                                 );
 
                                 $laravelRequest = Request::createFromBase($symfonyRequest);
-                                app()->instance('request', $laravelRequest);
+
+                                $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+                                $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
 
                                 /** @var Kernel $kernel */
                                 $kernel = app()->make(Kernel::class);
