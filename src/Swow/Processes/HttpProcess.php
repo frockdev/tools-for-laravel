@@ -34,7 +34,6 @@ class HttpProcess extends AbstractProcess
             while (true) {
                 try {
                     $connection = null;
-                    Log::info("Http server started. Waiting for connections...");
                     $connection = $server->acceptConnection();
                     Co::define('http_consumer')
                         ->charge(function: function (ServerConnection $connection): void {
