@@ -191,36 +191,39 @@ class NatsDriver
         $this->runReceiving();
 
         $firstStart = true;
-        while (ContextStorage::getSystemChannel('natsReceiveChannel_'.$this->name)) {
-            try {
-                $jetStream = $this->client->getApi()->getStream($streamName);
-                $consumerName = $streamName . '-' . Str::random(4) . '-' . env('HOSTNAME') . '-' . config('app.env');
-                $consumer = $jetStream->getConsumer($consumerName);
-                $consumer->getConfiguration()->setSubjectFilter($subject);
-            } catch (Throwable $exception) {
-                Log::error('NatsDriver: error while creating consumer: ' . $exception->getMessage(), [
-                    'exception' => $exception,
-                ]);
-                throw $exception;
-            }
-            try {
-                if (!is_null($periodInMicroseconds)) {
-                    $consumer->setIterations(1);
-                    if (!$firstStart) {
-                        usleep($periodInMicroseconds);
+        try {
+            $jetStream = $this->client->getApi()->getStream($streamName);
+            $consumerName = $streamName . '-' . Str::random(4) . '-' . env('HOSTNAME') . '-' . config('app.env');
+            $consumer = $jetStream->getConsumer($consumerName);
+            $consumer->getConfiguration()->setSubjectFilter($subject);
+        } catch (Throwable $exception) {
+            Log::error('NatsDriver: error while creating consumer: ' . $exception->getMessage(), [
+                'exception' => $exception,
+            ]);
+            throw $exception;
+        }
+        try {
+            while (ContextStorage::getSystemChannel('natsReceiveChannel_' . $this->name)) {
+                try {
+                    if (!is_null($periodInMicroseconds)) {
+                        $consumer->setIterations(1);
+                        if (!$firstStart) {
+                            usleep($periodInMicroseconds);
+                        }
                     }
-                }
-                $consumer->handle($callback);
-            } catch (Throwable $exception) {
-                Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
-                    'exception' => $exception,
-                ]);
+                    $consumer->handle($callback);
+                } catch (Throwable $exception) {
+                    Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
+                        'exception' => $exception,
+                    ]);
 
-                throw $exception;
-            } finally {
-                $consumer->delete();
-                $firstStart = false;
+                    throw $exception;
+                } finally {
+                    $firstStart = false;
+                }
             }
+        } finally {
+            $consumer->delete();
         }
     }
 
