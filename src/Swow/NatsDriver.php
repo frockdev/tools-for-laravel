@@ -197,7 +197,7 @@ class NatsDriver
             $consumerName = $streamName . '-' . Str::random(4) . '-' . env('HOSTNAME') . '-' . config('app.env');
             $consumer = $jetStream->getConsumer($consumerName);
             $consumer->getConfiguration()->setSubjectFilter($subject);
-            $consumer->getConfiguration()->setAckPolicy(AckPolicy::ALL);
+            $consumer->getConfiguration()->setAckPolicy(AckPolicy::NONE);
         } catch (Throwable $exception) {
             Log::error('NatsDriver: error while creating consumer: ' . $exception->getMessage(), [
                 'exception' => $exception,
