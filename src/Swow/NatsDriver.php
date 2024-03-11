@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow;
 
+use Basis\Nats\Consumer\AckPolicy;
 use Basis\Nats\Message\Payload;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
@@ -196,6 +197,7 @@ class NatsDriver
             $consumerName = $streamName . '-' . Str::random(4) . '-' . env('HOSTNAME') . '-' . config('app.env');
             $consumer = $jetStream->getConsumer($consumerName);
             $consumer->getConfiguration()->setSubjectFilter($subject);
+            $consumer->getConfiguration()->setAckPolicy(AckPolicy::ALL);
         } catch (Throwable $exception) {
             Log::error('NatsDriver: error while creating consumer: ' . $exception->getMessage(), [
                 'exception' => $exception,
