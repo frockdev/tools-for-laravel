@@ -4,7 +4,10 @@ namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Swow\Coroutine;
+use Swow\Sync\WaitGroup;
 
 class NatsQueueConsumerProcess extends AbstractProcess
 {
@@ -30,17 +33,25 @@ class NatsQueueConsumerProcess extends AbstractProcess
 
     protected function run(): bool
     {
+        $group = new WaitGroup();
+        $group->add();
         Co::define($this->name . '_ConsumerProcess' . $this->subject . '_' . Str::random())
-            ->charge(function () {
-                $driver = new NatsDriver($this->subject . '_' . Str::random());
-                $driver->subscribeWithEndpoint(
-                    $this->subject,
-                    $this->endpoint,
-                    $this->queueName,
-                    $this->disableSpatieValidation
-                );
-            })
+            ->charge(function (WaitGroup $group) {
+                try {
+                    $driver = new NatsDriver($this->subject . '_' . Str::random());
+                    $driver->subscribeWithEndpoint(
+                        $this->subject,
+                        $this->endpoint,
+                        $this->queueName,
+                        $this->disableSpatieValidation
+                    );
+                } catch (\Throwable $e) {
+                    Log::critical('Error while processing queue consumer', ['error' => $e->getMessage()]);
+                    $group->done();
+                }
+            })->args($group)
             ->runWithClonedDiContainer();
-        return false;
+        $group->wait();
+        return true;
     }
 }

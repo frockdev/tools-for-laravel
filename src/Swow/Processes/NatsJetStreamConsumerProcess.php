@@ -6,7 +6,9 @@ use Basis\Nats\Consumer\AckPolicy;
 use Basis\Nats\Consumer\DeliverPolicy;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Swow\Sync\WaitGroup;
 
 class NatsJetStreamConsumerProcess extends AbstractProcess
 {
@@ -40,19 +42,28 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
 
     protected function run(): bool
     {
+        $group = new WaitGroup();
+        $group->add();
         Co::define($this->name.'_JetstreamConsumerProcess'.$this->subject.'_'.$this->streamName.'_'.Str::random())
-            ->charge(function () {
-                $driver = new NatsDriver($this->subject.'_'.$this->streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
-                $driver->subscribeToJetstreamWithEndpoint(
-                    subject: $this->subject,
-                    streamName: $this->streamName,
-                    endpoint: $this->endpoint,
-                    periodInMicroseconds: $this->periodInMicroseconds,
-                    disableSpatieValidation: $this->disableSpatieValidation,
-                    deliverPolicy: $this->deliverPolicy,
-                    ackPolicy: $this->ackPolicy
-                );
-            })->runWithClonedDiContainer();
-        return false;
+            ->charge(function (WaitGroup $group) {
+                try {
+                    $driver = new NatsDriver($this->subject.'_'.$this->streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
+                    $driver->subscribeToJetstreamWithEndpoint(
+                        subject: $this->subject,
+                        streamName: $this->streamName,
+                        endpoint: $this->endpoint,
+                        periodInMicroseconds: $this->periodInMicroseconds,
+                        disableSpatieValidation: $this->disableSpatieValidation,
+                        deliverPolicy: $this->deliverPolicy,
+                        ackPolicy: $this->ackPolicy
+                    );
+                } catch (\Throwable $e) {
+                    Log::critical('Error while processing JetStream consumer', ['error' => $e->getMessage()]);
+                    $group->done();
+                }
+            })->args($group)
+            ->runWithClonedDiContainer();
+        $group->wait();
+        return true;
     }
 }
