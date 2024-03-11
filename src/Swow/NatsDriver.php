@@ -3,6 +3,7 @@
 namespace FrockDev\ToolsForLaravel\Swow;
 
 use Basis\Nats\Consumer\AckPolicy;
+use Basis\Nats\Consumer\DeliverPolicy;
 use Basis\Nats\Message\Payload;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
@@ -154,7 +155,7 @@ class NatsDriver
         return $response;
     }
 
-    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $periodInMicroseconds=null, $disableSpatieValidation = false) {
+    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $periodInMicroseconds=null, $disableSpatieValidation = false, $deliverPolicy = DeliverPolicy::NEW, $ackPolicy = AckPolicy::NONE) {
         $controller = function (Request $request) use ($endpoint, $disableSpatieValidation) {
             $endpoint->setContext($request->headers->all());
             $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
@@ -197,7 +198,8 @@ class NatsDriver
             $consumerName = $streamName . '-' . Str::random(4) . '-' . env('HOSTNAME') . '-' . config('app.env');
             $consumer = $jetStream->getConsumer($consumerName);
             $consumer->getConfiguration()->setSubjectFilter($subject);
-            $consumer->getConfiguration()->setAckPolicy(AckPolicy::NONE);
+            $consumer->getConfiguration()->setAckPolicy($ackPolicy);
+            $consumer->getConfiguration()->setDeliverPolicy($deliverPolicy);
         } catch (Throwable $exception) {
             Log::error('NatsDriver: error while creating consumer: ' . $exception->getMessage(), [
                 'exception' => $exception,

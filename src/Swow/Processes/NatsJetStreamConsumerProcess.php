@@ -2,6 +2,8 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use Basis\Nats\Consumer\AckPolicy;
+use Basis\Nats\Consumer\DeliverPolicy;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
 use Illuminate\Support\Str;
@@ -14,13 +16,17 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
     private ?int $periodInMicroseconds;
     private NatsDriver $driver;
     private bool $disableSpatieValidation = false;
+    private string $deliverPolicy = DeliverPolicy::NEW;
+    private string $ackPolicy = AckPolicy::NONE;
 
     public function __construct(
         object $endpoint,
         string $subject,
         string $streamName,
         ?int   $periodInMicroseconds=null,
-        bool   $disableSpatieValidation = false
+        bool   $disableSpatieValidation = false,
+        string $deliverPolicy = DeliverPolicy::NEW,
+        string $ackPolicy = AckPolicy::NONE
     )
     {
         $this->endpoint = $endpoint;
@@ -28,6 +34,8 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
         $this->subject = $subject;
         $this->streamName = $streamName;
         $this->periodInMicroseconds = $periodInMicroseconds;
+        $this->deliverPolicy = $deliverPolicy;
+        $this->ackPolicy = $ackPolicy;
     }
 
     protected function run(): bool
@@ -41,6 +49,8 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
                     endpoint: $this->endpoint,
                     periodInMicroseconds: $this->periodInMicroseconds,
                     disableSpatieValidation: $this->disableSpatieValidation,
+                    deliverPolicy: $this->deliverPolicy,
+                    ackPolicy: $this->ackPolicy
                 );
             })->runWithClonedDiContainer();
         return false;

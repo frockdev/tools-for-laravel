@@ -2,6 +2,9 @@
 
 namespace FrockDev\ToolsForLaravel\Annotations;
 
+use Basis\Nats\Consumer\AckPolicy;
+use Basis\Nats\Consumer\DeliverPolicy;
+
 #[\Attribute(\Attribute::TARGET_CLASS)]
 class NatsJetstream
 {
@@ -18,6 +21,10 @@ class NatsJetstream
 
     public ?int $periodInMicroseconds = null;
 
+    public string $deliverPolicy = DeliverPolicy::NEW;
+
+    public string $ackPolicy = AckPolicy::NONE;
+
     public function __construct(
         string  $subject,
         string  $streamName,
@@ -26,6 +33,8 @@ class NatsJetstream
         int     $nums = 1,
         ?string $pool = null,
         ?int    $periodInMicroseconds = null,
+        ?string $deliverPolicy = DeliverPolicy::NEW,
+        ?string $ackPolicy = AckPolicy::NONE
     )
     {
         $this->subject = $subject;
@@ -35,6 +44,8 @@ class NatsJetstream
         $this->nums = $nums;
         $this->pool = $pool;
         $this->periodInMicroseconds = $periodInMicroseconds;
+        $this->deliverPolicy = $deliverPolicy;
+        $this->ackPolicy = $ackPolicy;
     }
 
 }

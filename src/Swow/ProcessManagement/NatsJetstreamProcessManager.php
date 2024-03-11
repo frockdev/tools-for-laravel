@@ -1,6 +1,8 @@
 <?php
 
 namespace FrockDev\ToolsForLaravel\Swow\ProcessManagement;
+use Basis\Nats\Consumer\AckPolicy;
+use Basis\Nats\Consumer\DeliverPolicy;
 use FrockDev\ToolsForLaravel\Annotations\DisableSpatieValidation;
 use FrockDev\ToolsForLaravel\Annotations\NatsJetstream;
 use FrockDev\ToolsForLaravel\AnnotationsCollector\Collector;
@@ -51,7 +53,9 @@ class NatsJetstreamProcessManager {
                     $attributeExemplar->subject,
                     $attributeExemplar->streamName,
                     $attributeExemplar->periodInMicroseconds,
-                    $disableSpatieValidation
+                    $disableSpatieValidation,
+                    $attributeExemplar->deliverPolicy ?? DeliverPolicy::NEW,
+                    $attributeExemplar->ackPolicy ?? AckPolicy::NONE
                 );
                 $process->setName($attributeExemplar->name . '-' . $attributeExemplar->subject.'-'.$attributeExemplar->subject);
                 ProcessesRegistry::register($process);
@@ -59,9 +63,9 @@ class NatsJetstreamProcessManager {
         }
     }
 
-    private function createProcess(object $consumer, string $subject, string $stream, ?int $periodInMicroseconds=null, bool $disableSpatieValidation=false): AbstractProcess
+    private function createProcess(object $consumer, string $subject, string $stream, ?int $periodInMicroseconds=null, bool $disableSpatieValidation=false, $deliverPolicy = DeliverPolicy::NEW, $ackPolicy=AckPolicy::NONE): AbstractProcess
     {
-        return new NatsJetStreamConsumerProcess($consumer, $subject, $stream, $periodInMicroseconds, $disableSpatieValidation);
+        return new NatsJetStreamConsumerProcess($consumer, $subject, $stream, $periodInMicroseconds, $disableSpatieValidation, $deliverPolicy, $ackPolicy);
     }
 
 }
