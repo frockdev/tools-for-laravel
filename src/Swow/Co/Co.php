@@ -13,6 +13,7 @@ use Swow\Sync\WaitGroup;
 
 class Co
 {
+    private static bool $fake = false;
     private string $name;
     private array $args = [];
     private int $delaySeconds = 0;
@@ -21,7 +22,7 @@ class Co
      * @var true
      */
     private bool $needCloneDiContainer = false;
-    
+
     /**
      * @var true
      */
@@ -32,6 +33,10 @@ class Co
         $this->name = $name;
     }
 
+    public static function fake() {
+        self::$fake = true;
+    }
+
     public static function define(string $name) {
         return new Co($name);
     }
@@ -40,7 +45,7 @@ class Co
         $this->function = $function;
         return $this;
     }
-    
+
 
     public function delaySeconds(int $seconds) {
         $this->delaySeconds = $seconds;
@@ -57,13 +62,34 @@ class Co
         return $this;
     }
 
+    public static $fakeCoroutines = [];
+
+    private function addToFakeCoroutines() {
+        self::$fakeCoroutines[$this->name] = [
+            'name'=>$this->name,
+            'function' => $this->function,
+            'args' => $this->args,
+            'delaySeconds' => $this->delaySeconds,
+            'needCloneDiContainer' => $this->needCloneDiContainer,
+            'sync' => $this->sync
+        ];
+    }
+
     public function run() {
-        $this->runCoroutine(sync: $this->sync);
+        if (self::$fake) {
+            $this->addToFakeCoroutines();
+        } else {
+            $this->runCoroutine(sync: $this->sync);
+        }
     }
 
     public function runWithClonedDiContainer() {
-        $this->needCloneDiContainer = true;
-        $this->runCoroutine(sync: $this->sync);
+        if (self::$fake) {
+            $this->addToFakeCoroutines();
+        } else {
+            $this->needCloneDiContainer = true;
+            $this->runCoroutine(sync: $this->sync);
+        }
     }
 
     private function runCoroutine(bool $sync = false) {
