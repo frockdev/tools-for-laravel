@@ -6,7 +6,7 @@
             "FrockDev\\ToolsForLaravel\\": "src/"
         }
     },
-    "bin": ["bin/frock.php", "bin/frock-server.php"],
+    "bin": ["bin/frock.php", "bin/frock-server.php", "bin/frock-dev-server.php"],
     "require": {
         "larastan/larastan": "v2.9.0",
         "nette/php-generator": "4.1.3",
