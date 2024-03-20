@@ -42,7 +42,9 @@ ProcessesRegistry::runRegisteredProcesses();
 });
 
 $exitCode = $exitControlChannel->pop();
+if (!getenv('FROCK_DEV_SERVER')) {
+    sleep(2);
+}
 
-sleep(2);
 echo 'Exited: ' . $exitCode . PHP_EOL;
 exit($exitCode);

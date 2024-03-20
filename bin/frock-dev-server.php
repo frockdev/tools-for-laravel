@@ -39,7 +39,9 @@ Swow\Coroutine::run(function() use ($autoloaderPath) {
     $reloadablePath[] = $baseDir.'/routes/';
     $processCommand = ['php', $baseDir.'/vendor/bin/frock-server.php'];
     $serverProcess = new \Symfony\Component\Process\Process($processCommand);
+    $serverProcess->setEnv(['FROCK_DEV_SERVER' => 'true']);
     $serverProcess->start($outputWriter);
+    echo 'Starting frock-dev-server' . PHP_EOL;
 
     Watch::paths(...$restartablePath, ...$reloadablePath)
         ->onAnyChange(function (string $type, string $path) use (&$serverProcess, $restartablePath, $reloadablePath, $processCommand, $baseDir, $outputWriter) {
@@ -64,14 +66,30 @@ Swow\Coroutine::run(function() use ($autoloaderPath) {
             }
 
             if ($restartablePathFound) {
-                $serverProcess->signal(SIGKILL);
+                echo 'Status: '.$serverProcess->getStatus()."\n";
+                while (!$serverProcess->isTerminated()) {
+                    $serverProcess->signal(SIGTERM);
+                    echo 'Status: '.$serverProcess->getStatus()."\n";
+                    usleep(100000);
+                }
+                echo 'Terminated. Restarting'."\n";
+                sleep(1);
                 $serverProcess = new \Symfony\Component\Process\Process($processCommand);
+                $serverProcess->setEnv(['FROCK_DEV_SERVER' => 'true']);
                 $serverProcess->start($outputWriter);
                 return;
             } elseif ($reloadablePathFound) {
-                $serverProcess->signal(SIGKILL);
+                echo 'Status: '.$serverProcess->getStatus()."\n";
+                while (!$serverProcess->isTerminated()) {
+                    $serverProcess->signal(SIGTERM);
+                    echo 'Status: '.$serverProcess->getStatus()."\n";
+                    usleep(100000);
+                }
+                echo 'Terminated. Restarting'."\n";
+                sleep(1);
                 $serverProcess = new \Symfony\Component\Process\Process($processCommand);
                 $serverProcess->setEnv(['SKIP_INIT_PROCESSES' => 'true']);
+                $serverProcess->setEnv(['FROCK_DEV_SERVER' => 'true']);
                 $serverProcess->start($outputWriter);
                 return;
             }

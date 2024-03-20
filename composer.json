@@ -18,7 +18,8 @@
         "barryvdh/laravel-ide-helper": "v2.13.0",
         "swow/swow": "^1.4",
         "laravel/octane": "v2.3.4",
-        "spatie/file-system-watcher": "1.2.0"
+        "spatie/file-system-watcher": "1.2.0",
+        "ext-pcntl": "*"
     },
     "require-dev": {
     },
