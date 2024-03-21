@@ -2,8 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Support;
 
-use App\Console\Kernel;
-use FrockDev\ToolsForLaravel\ExceptionHandlers\UniversalErrorHandler;
+use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\Logging\CustomLogger;
@@ -21,6 +20,9 @@ use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\Bootstrap\SetRequestForConsole;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Monolog\Formatter\JsonFormatter;
 use Prometheus\Storage\InMemory;
@@ -36,52 +38,55 @@ class FrockLaravelStartSupport
         $this->appModeResolver = $appModeResolver;
     }
 
-    private function bootstrapApplication(): Application {
+    private function bootstrapApplication(string $baseDir): Application {
 
-
-        $mainRegularApplication = new \Illuminate\Foundation\Application(
-            dirname($GLOBALS['_composer_autoload_path']).'/../'
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Bind Important Interfaces
-        |--------------------------------------------------------------------------
-        |
-        | Next, we need to bind some important interfaces into the container so
-        | we will be able to resolve them when needed. The kernels serve the
-        | incoming requests to this application from both the web and CLI.
-        |
-        */
-
-        $mainRegularApplication->singleton(
-            \Illuminate\Contracts\Http\Kernel::class,
-            \App\Http\Kernel::class
-        );
-
-        $mainRegularApplication->singleton(
-            \Illuminate\Contracts\Console\Kernel::class,
-            Kernel::class
-        );
-
-        $mainRegularApplication->singleton(
-            ExceptionHandler::class,
-            UniversalErrorHandler::class
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Return The Application
-        |--------------------------------------------------------------------------
-        |
-        | This script returns the application instance. The instance is given to
-        | the calling script so we can separate the building of the instances
-        | from the actual running of the application and sending responses.
-        |
-        */
-
-        return $mainRegularApplication;
-
+        /** @var Application $app */
+        $app = Application::configure(basePath: $baseDir)
+            ->withRouting(
+                web: $baseDir.'/routes/web.php',
+                commands: $baseDir.'/routes/console.php',
+                health: '/up',
+            )
+            ->withExceptions(function (Exceptions $exceptions) {
+                $exceptions->report(function (\Throwable $e) use ($exceptions) {
+                    if (!app()->has('request')) {
+                        return true;
+                    } else {
+                        if (request()->attributes->get('transport')==='rpc') {
+                            return true;
+                        } elseif (request()->attributes->get('transport')==='nats') {
+                            //report each one
+                            $exceptions->handler->report($e);
+                            return false;
+                        } elseif (request()->attributes->get('transport')==='http') {
+                            return true;
+                        } else {
+                            $exceptions->handler->report($e);
+                            return false;
+                        }
+                    }
+                });
+                $commonErrorHandler = new CommonErrorHandler();
+                $exceptions->render(function (\Throwable $e, Request $request) use ($exceptions, $commonErrorHandler) {
+                    $errorData = $commonErrorHandler->handleError($e);
+                    if ($request->attributes->get('transport')==='rpc') {
+                        return response()
+                            ->json($errorData->errorData)
+                            ->setStatusCode($errorData->errorCode)
+                            ->header('x-trace-id', ContextStorage::get('x-trace-id'));
+                    } elseif ($request->attributes->get('transport')==='nats') {
+                        return response()
+                            ->json($errorData->errorData)
+                            ->setStatusCode($errorData->errorCode)
+                            ->header('x-trace-id', ContextStorage::get('x-trace-id'));
+                    } elseif ($request->attributes->get('transport')==='http') {
+                        return $exceptions->handler->render($request, $e);
+                    } else {
+                        return $exceptions->handler->render($request, $e);
+                    }
+                });
+            })->create();
+        return $app;
     }
 
     public function getInterStreamInstance() {
@@ -91,9 +96,9 @@ class FrockLaravelStartSupport
         ];
     }
 
-    public function initializeLaravel(bool $console = false): Application
+    public function initializeLaravel(string $basePath): Application
     {
-        $app = $this->bootstrapApplication();
+        $app = $this->bootstrapApplication($basePath);
         $method = (new ReflectionObject(
             $kernel = $app->make(HttpKernelContract::class)
         ))->getMethod('bootstrappers');

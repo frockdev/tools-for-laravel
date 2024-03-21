@@ -4,6 +4,7 @@ use FrockDev\ToolsForLaravel\Support\AppModeResolver;
 use FrockDev\ToolsForLaravel\Support\FrockLaravelStartSupport;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Swow\Channel;
+use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
 
@@ -23,17 +24,12 @@ $startSupport = new FrockLaravelStartSupport(
 $exitControlChannel = new Channel(1);
 ContextStorage::setSystemChannel('exitChannel', $exitControlChannel);
 ContextStorage::setCurrentRoutineName('main');
-$laravelApp = $startSupport->initializeLaravel(console: true);
+$laravelApp = $startSupport->initializeLaravel(realpath(dirname($GLOBALS['_composer_autoload_path']).'/../'));
 
 $startSupport->loadServicesForArtisan();
 
-$kernel = $laravelApp->make(Illuminate\Contracts\Console\Kernel::class);
-
-$status = $kernel->handle(
-    $input = new Symfony\Component\Console\Input\ArgvInput,
-    new Symfony\Component\Console\Output\ConsoleOutput
-);
-
+$status = $laravelApp
+    ->handleCommand(new ArgvInput);
 /*
 |--------------------------------------------------------------------------
 | Shutdown The Application
@@ -45,6 +41,5 @@ $status = $kernel->handle(
 |
 */
 
-$kernel->terminate($input, $status);
 sleep(2);
 exit($status);

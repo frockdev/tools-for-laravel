@@ -25,7 +25,7 @@ $startSupport = new FrockLaravelStartSupport(
 $exitControlChannel = new Channel(1);
 ContextStorage::setSystemChannel('exitChannel', $exitControlChannel);
 ContextStorage::setCurrentRoutineName('main');
-$laravelApp = $startSupport->initializeLaravel();
+$laravelApp = $startSupport->initializeLaravel(realpath(dirname($GLOBALS['_composer_autoload_path']).'/../'));
 
 $startSupport->loadServices(); //load services depends on mode
 

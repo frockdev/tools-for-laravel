@@ -4,18 +4,14 @@ namespace FrockDev\ToolsForLaravel\ExceptionHandlers;
 
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Foundation\Exceptions\Handler;
 use Swow\Coroutine;
 
-class UniversalErrorHandler extends Handler
+class UniversalErrorHandler
 {
     private CommonErrorHandler $commonErrorHandler;
-    private Handler $httpErrorHandler;
 
     public function __construct(Container $container)
     {
-        parent::__construct($container);
-        $this->httpErrorHandler = app()->make(Handler::class);
         $this->commonErrorHandler = app()->make(CommonErrorHandler::class);
     }
 
@@ -32,8 +28,17 @@ class UniversalErrorHandler extends Handler
                 ->json($error->errorData)
                 ->setStatusCode($error->errorCode)
                 ->header('x-trace-id', ContextStorage::get('x-trace-id'));
+        } elseif ($request->attributes->get('transport')==='http') {
+            return response()
+                ->json($error->errorData)
+                ->setStatusCode($error->errorCode)
+                ->header('x-trace-id', ContextStorage::get('x-trace-id'));
+        } else {
+            return response()
+                ->json($error->errorData)
+                ->setStatusCode($error->errorCode)
+                ->header('x-trace-id', ContextStorage::get('x-trace-id'));
         }
-        return $this->httpErrorHandler->render($request, $e);
     }
 
     public function report(\Throwable $e) {
