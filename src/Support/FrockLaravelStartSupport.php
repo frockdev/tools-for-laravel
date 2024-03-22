@@ -43,13 +43,23 @@ class FrockLaravelStartSupport
     private function bootstrapApplication(string $baseDir): Application {
 
         /** @var Application $app */
-        $app = Application::configure(basePath: $baseDir)
-            ->withRouting(
+        $appBuilder = Application::configure(basePath: $baseDir);
+        if (file_exists($baseDir.'/routes/api.php')) {
+            $appBuilder->withRouting(
+                web: $baseDir.'/routes/web.php',
+                api: $baseDir.'/routes/api.php',
+                commands: $baseDir.'/routes/console.php',
+                health: '/up',
+            );
+        } else {
+            $appBuilder->withRouting(
                 web: $baseDir.'/routes/web.php',
                 commands: $baseDir.'/routes/console.php',
                 health: '/up',
-            )
-            ->withExceptions(function (Exceptions $exceptions) {
+            );
+        }
+
+        return $appBuilder->withExceptions(function (Exceptions $exceptions) {
                 $commonErrorHandler = new CommonErrorHandler();
 
                 // lets hack laravel, because we need to have our own logic
@@ -131,7 +141,6 @@ class FrockLaravelStartSupport
 
             ]);
         })->create();
-        return $app;
     }
 
     public function getInterStreamInstance() {
