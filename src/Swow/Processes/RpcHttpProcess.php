@@ -6,7 +6,7 @@ use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
-use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Http\Request;
 use Swow\CoroutineException;
 use Swow\Errno;
@@ -18,6 +18,8 @@ use Swow\SocketException;
 
 class RpcHttpProcess extends AbstractProcess
 {
+    private array $routes;
+
     public function __construct(array $routes)
     {
         $this->routes = $routes;
@@ -66,12 +68,9 @@ class RpcHttpProcess extends AbstractProcess
                                         $laravelRequest = Request::createFromBase($symfonyRequest);
                                         $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
                                         $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
-                                        /** @var Kernel $kernel */
-                                        $kernel = app()->make(Kernel::class);
-                                        /** @var \Illuminate\Http\Response $response */
-                                        $response = $kernel->handle(
-                                            $laravelRequest
-                                        );
+                                        /** @var HttpKernelContract $kernel */
+                                        $kernel = app()->make(HttpKernelContract::class);
+                                        $response = $kernel->handle($laravelRequest);
 
                                         $swowResponse = new \Swow\Psr7\Message\Response();
                                         $swowResponse->setBody($response->getContent());

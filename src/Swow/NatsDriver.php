@@ -10,7 +10,7 @@ use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
 use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
 use FrockDev\ToolsForLaravel\Transport\AbstractMessage;
-use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -110,8 +110,6 @@ class NatsDriver
 
     private function runThroughKernel(string $subject, string $body, array $headers = [], ?string $queue=null, ?string $stream=null): \Symfony\Component\HttpFoundation\Response|\Illuminate\Http\Response
     {
-        /** @var Kernel $kernel */
-        $kernel = app()->make(Kernel::class);
         if (!$stream) {
             if (!$queue)
                 $uri = $subject;
@@ -139,7 +137,7 @@ class NatsDriver
 
         $laravelRequest = new Request(
             query: [],
-            attributes: array_merge(['transport'=>'nats']),
+            attributes: ['transport'=>'nats'],
             cookies: [],
             files: [],
             server: $serverParams,
@@ -148,9 +146,8 @@ class NatsDriver
         $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
         $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
         Log::debug('Request got from Nats:', ['request'=>$laravelRequest]);
-        $response =  $kernel->handle(
-            $laravelRequest
-        );
+        $kernel = app()->make(HttpKernelContract::class);
+        $response = $kernel->handle($laravelRequest);
         Log::debug('Response got from Nats:', ['response'=>$response]);
         return $response;
     }

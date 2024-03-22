@@ -15,15 +15,17 @@ use FrockDev\ToolsForLaravel\Swow\ProcessManagement\NatsQueueProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\RpcHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\SystemMetricsProcessManager;
-use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\Bootstrap\SetRequestForConsole;
 use Illuminate\Foundation\Configuration\Exceptions;
-use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Monolog\Formatter\JsonFormatter;
 use Prometheus\Storage\InMemory;
 use ReflectionObject;
@@ -48,44 +50,87 @@ class FrockLaravelStartSupport
                 health: '/up',
             )
             ->withExceptions(function (Exceptions $exceptions) {
-                $exceptions->report(function (\Throwable $e) use ($exceptions) {
+                $commonErrorHandler = new CommonErrorHandler();
+
+                // lets hack laravel, because we need to have our own logic
+                // reflection will work only on startup, so it is ok
+                $reflectionMethodUnauthenticated = new \ReflectionMethod($exceptions->handler, 'unauthenticated');
+                $reflectionMethodUnauthenticated->setAccessible(true);
+
+                $reflectionMethodConvertValidationExceptionToResponse = new \ReflectionMethod($exceptions->handler, 'convertValidationExceptionToResponse');
+                $reflectionMethodConvertValidationExceptionToResponse->setAccessible(true);
+
+                $reflectionMethodRenderExceptionResponse = new \ReflectionMethod($exceptions->handler, 'renderExceptionResponse');
+                $reflectionMethodRenderExceptionResponse->setAccessible(true);
+
+                $reflectionMethodReportThrowable = new \ReflectionMethod($exceptions->handler, 'reportThrowable');
+                $reflectionMethodReportThrowable->setAccessible(true);
+
+                $exceptions->render(function (\Throwable $e, Request $request) use
+                (
+                    $commonErrorHandler,
+                    $exceptions,
+                    $reflectionMethodUnauthenticated,
+                    $reflectionMethodConvertValidationExceptionToResponse,
+                    $reflectionMethodRenderExceptionResponse
+                ) {
+                    //here we will have our own logic
+
+//                    if ($request->attributes->get('transport')==='http') {
+//
+//                    } else
+                    if ($request->attributes->get('transport')==='rpc') {
+                        $errorData = $commonErrorHandler->handleError($e);
+                        return response()
+                            ->json($errorData->errorData)
+                            ->setStatusCode($errorData->errorCode)
+                            ->header('x-trace-id', ContextStorage::get('x-trace-id'));
+                    } elseif ($request->attributes->get('transport')==='nats') {
+                        $errorData = $commonErrorHandler->handleError($e);
+                        return response()
+                            ->json($errorData->errorData)
+                            ->setStatusCode($errorData->errorCode)
+                            ->header('x-trace-id', ContextStorage::get('x-trace-id'));
+                    }
+
+                    // fallbacks:
+                    if ($e instanceof HttpResponseException) {
+                        return $e->getResponse();
+                    }
+                    if ($e instanceof AuthenticationException) {
+                        return $reflectionMethodUnauthenticated->invoke($exceptions->handler, $request, $e);
+                    }
+                    if ($e instanceof ValidationException) {
+                        return $reflectionMethodConvertValidationExceptionToResponse->invoke($exceptions->handler, $e, $request);
+                    }
+                    return $reflectionMethodRenderExceptionResponse->invoke($exceptions->handler, $request, $e);
+                });
+                $exceptions->report(function (\Throwable $e) use ($exceptions, $reflectionMethodReportThrowable) {
                     if (!app()->has('request')) {
                         return true;
                     } else {
                         if (request()->attributes->get('transport')==='rpc') {
                             return true;
                         } elseif (request()->attributes->get('transport')==='nats') {
-                            //report each one
-                            $exceptions->handler->report($e);
+                            $reflectionMethodReportThrowable->invoke($exceptions->handler, $e);
                             return false;
                         } elseif (request()->attributes->get('transport')==='http') {
                             return true;
-                        } else {
-                            $exceptions->handler->report($e);
-                            return false;
                         }
+                        return true;
                     }
                 });
-                $commonErrorHandler = new CommonErrorHandler();
-                $exceptions->render(function (\Throwable $e, Request $request) use ($exceptions, $commonErrorHandler) {
-                    $errorData = $commonErrorHandler->handleError($e);
-                    if ($request->attributes->get('transport')==='rpc') {
-                        return response()
-                            ->json($errorData->errorData)
-                            ->setStatusCode($errorData->errorCode)
-                            ->header('x-trace-id', ContextStorage::get('x-trace-id'));
-                    } elseif ($request->attributes->get('transport')==='nats') {
-                        return response()
-                            ->json($errorData->errorData)
-                            ->setStatusCode($errorData->errorCode)
-                            ->header('x-trace-id', ContextStorage::get('x-trace-id'));
-                    } elseif ($request->attributes->get('transport')==='http') {
-                        return $exceptions->handler->render($request, $e);
-                    } else {
-                        return $exceptions->handler->render($request, $e);
-                    }
-                });
-            })->create();
+
+            })
+    ->withMiddleware(function (Middleware $middleware) {
+            $middleware->validateCsrfTokens(
+                except: ['api/*', 'rpc/*'],
+            );
+
+            $middleware->web(append: [
+
+            ]);
+        })->create();
         return $app;
     }
 

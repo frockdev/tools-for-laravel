@@ -2,10 +2,11 @@
 
 namespace Illuminate\Container;
 
+
+use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use ArrayAccess;
 use Closure;
 use Exception;
-use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\CircularDependencyException;
 use Illuminate\Contracts\Container\Container as ContainerContract;
@@ -184,8 +185,8 @@ class Container implements ArrayAccess, ContainerContract
     public function bound($abstract)
     {
         return isset($this->bindings[$abstract]) ||
-               isset($this->instances[$abstract]) ||
-               $this->isAlias($abstract);
+            isset($this->instances[$abstract]) ||
+            $this->isAlias($abstract);
     }
 
     /**
@@ -211,7 +212,7 @@ class Container implements ArrayAccess, ContainerContract
         }
 
         return isset($this->resolved[$abstract]) ||
-               isset($this->instances[$abstract]);
+            isset($this->instances[$abstract]);
     }
 
     /**
@@ -223,8 +224,8 @@ class Container implements ArrayAccess, ContainerContract
     public function isShared($abstract)
     {
         return isset($this->instances[$abstract]) ||
-               (isset($this->bindings[$abstract]['shared']) &&
-               $this->bindings[$abstract]['shared'] === true);
+            (isset($this->bindings[$abstract]['shared']) &&
+                $this->bindings[$abstract]['shared'] === true);
     }
 
     /**
@@ -651,10 +652,10 @@ class Container implements ArrayAccess, ContainerContract
         $pushedToBuildStack = false;
 
         if (($className = $this->getClassForCallable($callback)) && ! in_array(
-            $className,
-            $this->buildStack,
-            true
-        )) {
+                $className,
+                $this->buildStack,
+                true
+            )) {
             $this->buildStack[] = $className;
 
             $pushedToBuildStack = true;
@@ -677,20 +678,12 @@ class Container implements ArrayAccess, ContainerContract
      */
     protected function getClassForCallable($callback)
     {
-        if (PHP_VERSION_ID >= 80200) {
-            if (is_callable($callback) &&
-                ! ($reflector = new ReflectionFunction($callback(...)))->isAnonymous()) {
-                return $reflector->getClosureScopeClass()->name ?? false;
-            }
-
-            return false;
+        if (is_callable($callback) &&
+            ! ($reflector = new ReflectionFunction($callback(...)))->isAnonymous()) {
+            return $reflector->getClosureScopeClass()->name ?? false;
         }
 
-        if (! is_array($callback)) {
-            return false;
-        }
-
-        return is_string($callback[0]) ? $callback[0] : get_class($callback[0]);
+        return false;
     }
 
     /**
@@ -979,8 +972,8 @@ class Container implements ArrayAccess, ContainerContract
             // primitive type which we can not resolve since it is not a class and
             // we will just bomb out with an error since we have no-where to go.
             $result = is_null(Util::getParameterClassName($dependency))
-                            ? $this->resolvePrimitive($dependency)
-                            : $this->resolveClass($dependency);
+                ? $this->resolvePrimitive($dependency)
+                : $this->resolveClass($dependency);
 
             if ($dependency->isVariadic()) {
                 $results = array_merge($results, $result);
@@ -1063,13 +1056,13 @@ class Container implements ArrayAccess, ContainerContract
     {
         try {
             return $parameter->isVariadic()
-                        ? $this->resolveVariadicClass($parameter)
-                        : $this->make(Util::getParameterClassName($parameter));
+                ? $this->resolveVariadicClass($parameter)
+                : $this->make(Util::getParameterClassName($parameter));
         }
 
-        // If we can not resolve the class instance, we will check to see if the value
-        // is optional, and if it is we will return the optional parameter value as
-        // the value of the dependency, similarly to how we do this with scalars.
+            // If we can not resolve the class instance, we will check to see if the value
+            // is optional, and if it is we will return the optional parameter value as
+            // the value of the dependency, similarly to how we do this with scalars.
         catch (BindingResolutionException $e) {
             if ($parameter->isDefaultValueAvailable()) {
                 array_pop($this->with);
@@ -1323,8 +1316,8 @@ class Container implements ArrayAccess, ContainerContract
     public function getAlias($abstract)
     {
         return isset($this->aliases[$abstract])
-                    ? $this->getAlias($this->aliases[$abstract])
-                    : $abstract;
+            ? $this->getAlias($this->aliases[$abstract])
+            : $abstract;
     }
 
     /**

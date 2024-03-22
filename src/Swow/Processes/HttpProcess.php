@@ -5,7 +5,7 @@ namespace FrockDev\ToolsForLaravel\Swow\Processes;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
-use Illuminate\Http\Response;
+use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Support\Facades\Log;
 use Swow\CoroutineException;
 use Swow\Errno;
@@ -14,7 +14,6 @@ use Swow\Psr7\Server\Server;
 use Swow\Psr7\Server\ServerConnection;
 use Swow\Socket;
 use Swow\SocketException;
-use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\File;
@@ -53,7 +52,7 @@ class HttpProcess extends AbstractProcess
                                 $symfonyRequest = new \Symfony\Component\HttpFoundation\Request(
                                     query: $request->getQueryParams(),
                                     request: $request->getAttributes(),
-                                    attributes: $request->getAttributes(),
+                                    attributes: [...$request->getAttributes(), 'transport'=>'http'],
                                     cookies: $request->getCookieParams(),
                                     files: $request->getUploadedFiles(),
                                     server: $serverParams,
@@ -65,12 +64,8 @@ class HttpProcess extends AbstractProcess
                                 $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
                                 $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
 
-                                /** @var Kernel $kernel */
-                                $kernel = app()->make(Kernel::class);
-                                /** @var Response $response */
-                                $response = $kernel->handle(
-                                    $laravelRequest
-                                );
+                                $kernel = app()->make(HttpKernelContract::class);
+                                $response = $kernel->handle($laravelRequest);
 
                                 if ($response instanceof BinaryFileResponse) {
                                     $swowResponse = new \Swow\Psr7\Message\Response();
