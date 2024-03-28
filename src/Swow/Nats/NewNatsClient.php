@@ -325,11 +325,15 @@ class NewNatsClient
         if (strlen($this->innerBuffer) < $length) {
             $result = $this->innerBuffer;
             $this->innerBuffer='';
+            $length = $length - strlen($result);
+            $this->readLinesIntoBuffer();
+            $result.=$this->getLineByLength($length);
             return $result;
+        } else {
+            $line = substr($this->innerBuffer, 0, $length);
+            $this->innerBuffer = substr($this->innerBuffer, $length);
+            return $line;
         }
-        $line = substr($this->innerBuffer, 0, $length);
-        $this->innerBuffer = substr($this->innerBuffer, $length);
-        return $line;
     }
 
 }
