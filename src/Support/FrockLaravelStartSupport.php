@@ -122,8 +122,7 @@ class FrockLaravelStartSupport
                         if (request()->attributes->get('transport')==='rpc') {
                             return true;
                         } elseif (request()->attributes->get('transport')==='nats') {
-                            $reflectionMethodReportThrowable->invoke($exceptions->handler, $e);
-                            return false;
+                            return true;
                         } elseif (request()->attributes->get('transport')==='http') {
                             return true;
                         }
