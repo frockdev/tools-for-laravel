@@ -7,8 +7,8 @@ use Illuminate\Http\Request;
 
 class RequestStartedHandling
 {
-    private ?\Illuminate\Foundation\Application $app;
-    private ?\Illuminate\Foundation\Application $sandbox;
+    public ?\Illuminate\Foundation\Application $app;
+    public ?\Illuminate\Foundation\Application $sandbox;
 
     public function __construct(
         public Request $request
