@@ -5,6 +5,7 @@ namespace FrockDev\ToolsForLaravel\Swow;
 use Basis\Nats\Consumer\AckPolicy;
 use Basis\Nats\Consumer\DeliverPolicy;
 use Basis\Nats\Message\Payload;
+use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestFinished;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
@@ -110,46 +111,52 @@ class NatsDriver
 
     private function runThroughKernel(string $subject, string $body, array $headers = [], ?string $queue=null, ?string $stream=null): \Symfony\Component\HttpFoundation\Response|\Illuminate\Http\Response
     {
-        if (!$stream) {
-            if (!$queue)
-                $uri = $subject;
-            else
-                $uri = $subject. '/' . $queue;
-        } else {
-            $uri = $stream . '/' . $subject;
-        }
-        $convertedHeaders = [
-            'HTTP_NATS_SUBJECT'=> $subject,
-        ];
-        if ($stream) $convertedHeaders['HTTP_NATS_STREAM'] = $stream;
-        if ($queue) $convertedHeaders['HTTP_NATS_QUEUE'] = $queue;
-        foreach ($headers as $key=> $header) {
-            $convertedHeaders['HTTP_'.$key] = $header;
-        }
-        if (!isset($convertedHeaders['HTTP_x-trace-id'])) {
-            $convertedHeaders['HTTP_x-trace-id'] = ContextStorage::get('x-trace-id');
-        }
-        $serverParams = array_merge([
-            'REQUEST_URI'=> $uri,
-            'REQUEST_METHOD'=> 'POST',
-            'QUERY_STRING'=> '',
-        ], $convertedHeaders);
+        try {
+            if (!$stream) {
+                if (!$queue)
+                    $uri = $subject;
+                else
+                    $uri = $subject . '/' . $queue;
+            } else {
+                $uri = $stream . '/' . $subject;
+            }
+            $convertedHeaders = [
+                'HTTP_NATS_SUBJECT' => $subject,
+            ];
+            if ($stream) $convertedHeaders['HTTP_NATS_STREAM'] = $stream;
+            if ($queue) $convertedHeaders['HTTP_NATS_QUEUE'] = $queue;
+            foreach ($headers as $key => $header) {
+                $convertedHeaders['HTTP_' . $key] = $header;
+            }
+            if (!isset($convertedHeaders['HTTP_x-trace-id'])) {
+                $convertedHeaders['HTTP_x-trace-id'] = ContextStorage::get('x-trace-id');
+            }
+            $serverParams = array_merge([
+                'REQUEST_URI' => $uri,
+                'REQUEST_METHOD' => 'POST',
+                'QUERY_STRING' => '',
+            ], $convertedHeaders);
 
-        $laravelRequest = new Request(
-            query: [],
-            attributes: ['transport'=>'nats'],
-            cookies: [],
-            files: [],
-            server: $serverParams,
-            content: $body
-        );
-        $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
-        $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
-        Log::debug('Request got from Nats:', ['request'=>$laravelRequest]);
-        $kernel = app()->make(HttpKernelContract::class);
-        $response = $kernel->handle($laravelRequest);
-        Log::debug('Response got from Nats:', ['response'=>$response]);
-        return $response;
+            $laravelRequest = new Request(
+                query: [],
+                attributes: ['transport' => 'nats'],
+                cookies: [],
+                files: [],
+                server: $serverParams,
+                content: $body
+            );
+            $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+            $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
+            Log::debug('Request got from Nats:', ['request' => $laravelRequest]);
+            $kernel = app()->make(HttpKernelContract::class);
+            $response = $kernel->handle($laravelRequest);
+            Log::debug('Response got from Nats:', ['response' => $response]);
+            return $response;
+        } finally {
+            /** @var \Illuminate\Events\Dispatcher $dispatcher */
+            $dispatcher = ContextStorage::getApplication()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+            $dispatcher->dispatch(new RequestFinished(ContextStorage::getApplication()));
+        }
     }
 
     public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $periodInMicroseconds=null, $disableSpatieValidation = false, $deliverPolicy = DeliverPolicy::NEW, $ackPolicy = AckPolicy::NONE) {
