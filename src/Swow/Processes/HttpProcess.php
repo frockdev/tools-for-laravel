@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestFinished;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
@@ -101,6 +102,10 @@ class HttpProcess extends AbstractProcess
 
                             } catch (ProtocolException $exception) {
                                 $connection->error($exception->getCode(), $exception->getMessage(), close: true);
+                            } finally {
+                                /** @var \Illuminate\Events\Dispatcher $dispatcher */
+                                $dispatcher = ContextStorage::getApplication()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+                                $dispatcher->dispatch(new RequestFinished(ContextStorage::getApplication()));
                             }
                             $connection->close();
                         })->args($connection)->runWithClonedDiContainer();
@@ -110,6 +115,10 @@ class HttpProcess extends AbstractProcess
                     } else {
                         break;
                     }
+                } finally {
+                    /** @var \Illuminate\Events\Dispatcher $dispatcher */
+                    $dispatcher = ContextStorage::getApplication()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+                    $dispatcher->dispatch(new RequestFinished(ContextStorage::getApplication()));
                 }
             }
         })->args($server)->runWithClonedDiContainer();

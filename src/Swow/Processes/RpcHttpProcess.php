@@ -3,6 +3,7 @@
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
 use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
+use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestFinished;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
@@ -87,6 +88,10 @@ class RpcHttpProcess extends AbstractProcess
                                         $response->addHeader('x-trace-id', ContextStorage::get('x-trace-id'));
                                         $response->setBody(json_encode($errorInfo->errorData));
                                         $connection->sendHttpResponse($response);
+                                    } finally {
+                                        /** @var \Illuminate\Events\Dispatcher $dispatcher */
+                                        $dispatcher = ContextStorage::getApplication()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+                                        $dispatcher->dispatch(new RequestFinished(ContextStorage::getApplication()));
                                     }
 
                                     break;
@@ -104,6 +109,10 @@ class RpcHttpProcess extends AbstractProcess
                                     $connection->sendHttpResponse($response);
 
                                     break;
+                                } finally {
+                                    /** @var \Illuminate\Events\Dispatcher $dispatcher */
+                                    $dispatcher = ContextStorage::getApplication()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+                                    $dispatcher->dispatch(new RequestFinished(ContextStorage::getApplication()));
                                 }
                             }
                         } finally {
@@ -116,6 +125,10 @@ class RpcHttpProcess extends AbstractProcess
                     } else {
                         break;
                     }
+                } finally {
+                    /** @var \Illuminate\Events\Dispatcher $dispatcher */
+                    $dispatcher = ContextStorage::getApplication()->make(\Illuminate\Contracts\Events\Dispatcher::class);
+                    $dispatcher->dispatch(new RequestFinished(ContextStorage::getApplication()));
                 }
             }
         })->args($server, app()->make(CommonErrorHandler::class))->run();

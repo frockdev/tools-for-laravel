@@ -3,12 +3,14 @@
 namespace FrockDev\ToolsForLaravel\Swow\Co;
 
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\ContainerCreated;
+use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestFinished;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
+use Laravel\Octane\Listeners\DisconnectFromDatabases;
 use Swow\Sync\WaitGroup;
 
 class Co
@@ -122,6 +124,7 @@ class Co
                 Facade::setFacadeApplication($newContainer);
 
                 $this->addEventsToNewContainer($newContainer);
+                $this->registerOnRequestEventHandlers($newContainer);
                 $this->fireContainerClonedEvent($oldContainer, $newContainer);
 
                 foreach (ContextStorage::getInterStreamInstances() as $key => $instance) {
@@ -196,6 +199,15 @@ class Co
 
         foreach ($events as $event) {
             $dispatcher->listen(ContainerCreated::class, $event);
+        }
+
+
+        $eventsAfterRequestFinished = [
+            DisconnectFromDatabases::class
+        ];
+
+        foreach ($eventsAfterRequestFinished as $event) {
+            $dispatcher->listen(RequestFinished::class, $event);
         }
     }
 
