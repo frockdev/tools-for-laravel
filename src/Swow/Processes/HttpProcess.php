@@ -21,6 +21,12 @@ use Symfony\Component\HttpFoundation\File\File;
 
 class HttpProcess extends AbstractProcess
 {
+
+    private function ifTryingToGetFilesFromBuild($request): bool
+    {
+        return str_starts_with($request->getUri()->getPath(), '/build');
+    }
+
     protected function run(): bool
     {
         $host = '0.0.0.0';
@@ -39,6 +45,29 @@ class HttpProcess extends AbstractProcess
                         ->charge(function: function (ServerConnection $connection): void {
                             try {
                                 $request = $connection->recvHttpRequest();
+                                $tryingGetFilesFromBuild = $this->ifTryingToGetFilesFromBuild($request);
+                                if ($tryingGetFilesFromBuild) {
+                                    $swowResponse = new \Swow\Psr7\Message\Response();
+                                    if (file_exists(public_path($request->getUri()->getPath()))) {
+                                        $file = new File(public_path($request->getUri()->getPath()));
+                                        $contentOfFIle = $file->getContent();
+                                        $swowResponse->setBody($contentOfFIle);
+                                        $swowResponse->setStatus(200);
+                                        $swowResponse->setHeaders([]);
+                                        $swowResponse->setProtocolVersion('1.1');
+                                        $connection->sendHttpResponse($swowResponse);
+                                        $connection->close();
+                                        return;
+                                    } else {
+                                        $swowResponse->setStatus(404);
+                                        $swowResponse->setBody('File not found');
+                                        $swowResponse->setHeaders([]);
+                                        $swowResponse->setProtocolVersion('1.1');
+                                        $connection->sendHttpResponse($swowResponse);
+                                        $connection->close();
+                                        return;
+                                    }
+                                }
                                 ContextStorage::set('x-trace-id', $request->getHeader('x-trace-id') ?? uuid_create());
                                 $convertedHeaders = [];
                                 foreach ($request->getHeaders() as $key => $header) {
