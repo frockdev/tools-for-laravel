@@ -5,6 +5,9 @@ namespace FrockDev\ToolsForLaravel\Swow\CleanEvents;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Http\Request;
 
+/**
+ * @deprecated
+ */
 class RequestStartedHandling
 {
     public ?\Illuminate\Foundation\Application $app;

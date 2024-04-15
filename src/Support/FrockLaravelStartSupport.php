@@ -16,23 +16,23 @@ use FrockDev\ToolsForLaravel\Swow\ProcessManagement\RpcHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\PrometheusHttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\SystemMetricsProcessManager;
 use Illuminate\Auth\AuthenticationException;
-use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Bootstrap\RegisterProviders;
-use Illuminate\Foundation\Bootstrap\SetRequestForConsole;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Laravel\Octane\ApplicationFactory;
+use Laravel\Octane\DispatchesEvents;
+use Laravel\Octane\Events\WorkerStarting;
 use Monolog\Formatter\JsonFormatter;
 use Prometheus\Storage\InMemory;
-use ReflectionObject;
 use Swow\Channel;
 
 class FrockLaravelStartSupport
 {
+    use DispatchesEvents;
     private AppModeResolver $appModeResolver;
 
     public function __construct(AppModeResolver $appModeResolver)
@@ -152,36 +152,19 @@ class FrockLaravelStartSupport
     public function initializeLaravel(string $basePath): Application
     {
         $app = $this->bootstrapApplication($basePath);
-        $method = (new ReflectionObject(
-            $kernel = $app->make(HttpKernelContract::class)
-        ))->getMethod('bootstrappers');
+        $appFactory = new ApplicationFactory($basePath);
 
-        $method->setAccessible(true);
+        $appFactory->bootstrap($app);
 
-        $bootstrappers = $this->injectBootstrapperBefore(
-            RegisterProviders::class,
-            SetRequestForConsole::class,
-            $method->invoke($kernel)
-        );
+        $appFactory->warm($app, $app->make('config')->get('octane.warm', []));
+        $appFactory->warm($app, [
+            \FrockDev\ToolsForLaravel\Swow\Liveness\Storage::class,
+            InMemory::class,
+        ]);
 
-        $app->bootstrapWith($bootstrappers);
+        $this->dispatchEvent($app, new WorkerStarting($app));
 
-        $app->loadDeferredProviders();
-
-        foreach ($this->getInterStreamInstance() as $className) {
-            if (trim($className)=='') continue;
-            $instance = $app->make($className);
-            ContextStorage::setInterStreamInstance(get_class($instance), $instance);
-        }
-
-        if (config('frock.interStreamInstances')) {
-            foreach (config('frock.interStreamInstances') as $key) {
-                if (trim($key)=='') continue;
-                $instance = $app->make($key);
-                ContextStorage::setInterStreamInstance(get_class($instance), $instance);
-            }
-        }
-
+        $app->singleton(ApplicationFactory::class);
         return $app;
     }
 

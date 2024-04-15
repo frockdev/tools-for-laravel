@@ -9,6 +9,10 @@ use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
+use Laravel\Octane\Events\RequestHandled;
+use Laravel\Octane\Events\RequestReceived;
+use Laravel\Octane\Events\RequestTerminated;
 use Swow\CoroutineException;
 use Swow\Errno;
 use Swow\Http\Protocol\ProtocolException;
@@ -19,13 +23,6 @@ use Swow\SocketException;
 
 class RpcHttpProcess extends AbstractProcess
 {
-    private array $routes;
-
-    public function __construct(array $routes)
-    {
-        $this->routes = $routes;
-    }
-
     protected function run(): bool
     {
         $host = '0.0.0.0';
@@ -59,7 +56,7 @@ class RpcHttpProcess extends AbstractProcess
                                         ], $request->getServerParams(), $convertedHeaders);
                                         $symfonyRequest = new \Symfony\Component\HttpFoundation\Request(
                                             query: $request->getQueryParams(),
-                                            request: $request->getAttributes(),
+                                            request: $request->getParsedBody(),
                                             attributes: $request->getAttributes(),
                                             cookies: $request->getCookieParams(),
                                             files: $request->getUploadedFiles(),
@@ -68,10 +65,11 @@ class RpcHttpProcess extends AbstractProcess
                                         );
                                         $laravelRequest = Request::createFromBase($symfonyRequest);
                                         $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
-                                        $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
+                                        $dispatcher->dispatch(new RequestReceived(ContextStorage::getMainApplication(), app(), $laravelRequest));
                                         /** @var HttpKernelContract $kernel */
                                         $kernel = app()->make(HttpKernelContract::class);
                                         $response = $kernel->handle($laravelRequest);
+                                        $dispatcher->dispatch(new RequestHandled(app(), $laravelRequest, $response));
 
                                         $swowResponse = new \Swow\Psr7\Message\Response();
                                         $swowResponse->setBody($response->getContent());
@@ -117,6 +115,13 @@ class RpcHttpProcess extends AbstractProcess
                             }
                         } finally {
                             $connection->close();
+                            $dispatcher->dispatch(new RequestTerminated(ContextStorage::getMainApplication(), app(), $laravelRequest, $response));
+
+                            $route = $laravelRequest->route();
+
+                            if ($route instanceof Route && method_exists($route, 'flushController')) {
+                                $route->flushController();
+                            }
                         }
                     })->runWithClonedDiContainer();
                 } catch (SocketException|CoroutineException $exception) {

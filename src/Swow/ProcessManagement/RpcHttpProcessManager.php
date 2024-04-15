@@ -24,7 +24,7 @@ class RpcHttpProcessManager
     public function registerProcesses() {
         $routes = $this->findRoutes();
         $this->registerRoutesInLaravel($routes);
-        $process = $this->createProcess($routes);
+        $process = $this->createProcess();
         $process->setName('rpc-http');
         ProcessesRegistry::register($process);
     }
@@ -61,8 +61,8 @@ class RpcHttpProcessManager
         return $result;
     }
 
-    private function createProcess(array $routes) {
-        return new RpcHttpProcess($routes);
+    private function createProcess() {
+        return new RpcHttpProcess();
     }
 
     private function registerRoutesInLaravel(array $routes)

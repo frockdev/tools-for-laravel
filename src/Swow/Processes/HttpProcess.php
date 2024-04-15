@@ -3,11 +3,14 @@
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestFinished;
-use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Log;
+use Laravel\Octane\Events\RequestHandled;
+use Laravel\Octane\Events\RequestReceived;
+use Laravel\Octane\Events\RequestTerminated;
 use Swow\CoroutineException;
 use Swow\Errno;
 use Swow\Http\Protocol\ProtocolException;
@@ -53,7 +56,16 @@ class HttpProcess extends AbstractProcess
                                         $contentOfFIle = $file->getContent();
                                         $swowResponse->setBody($contentOfFIle);
                                         $swowResponse->setStatus(200);
-                                        $swowResponse->setHeaders([]);
+                                        if ($file->getExtension()=='css') {
+                                            $swowResponse->setHeaders([
+                                                'Content-Type' => 'text/css',
+                                            ]);
+                                        } elseif ($file->getExtension()=='js') {
+                                            $swowResponse->setHeaders([
+                                                'Content-Type' => 'application/javascript',
+                                            ]);
+                                        }
+
                                         $swowResponse->setProtocolVersion('1.1');
                                         $connection->sendHttpResponse($swowResponse);
                                         $connection->close();
@@ -81,7 +93,7 @@ class HttpProcess extends AbstractProcess
                                 ], $request->getServerParams(), $convertedHeaders);
                                 $symfonyRequest = new \Symfony\Component\HttpFoundation\Request(
                                     query: $request->getQueryParams(),
-                                    request: $request->getAttributes(),
+                                    request: $request->getParsedBody(),
                                     attributes: [...$request->getAttributes(), 'transport'=>'http'],
                                     cookies: $request->getCookieParams(),
                                     files: $request->getUploadedFiles(),
@@ -90,12 +102,12 @@ class HttpProcess extends AbstractProcess
                                 );
 
                                 $laravelRequest = Request::createFromBase($symfonyRequest);
-
                                 $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
-                                $dispatcher->dispatch(new RequestStartedHandling($laravelRequest));
+                                $dispatcher->dispatch(new RequestReceived(ContextStorage::getMainApplication(), app(), $laravelRequest));
 
                                 $kernel = app()->make(HttpKernelContract::class);
                                 $response = $kernel->handle($laravelRequest);
+                                $dispatcher->dispatch(new RequestHandled(app(), $laravelRequest, $response));
 
                                 if ($response instanceof BinaryFileResponse) {
                                     $swowResponse = new \Swow\Psr7\Message\Response();
@@ -137,6 +149,13 @@ class HttpProcess extends AbstractProcess
                                 $dispatcher->dispatch(new RequestFinished(ContextStorage::getApplication()));
                             }
                             $connection->close();
+                            $dispatcher->dispatch(new RequestTerminated(ContextStorage::getMainApplication(), app(), $laravelRequest, $response));
+
+                            $route = $laravelRequest->route();
+
+                            if ($route instanceof Route && method_exists($route, 'flushController')) {
+                                $route->flushController();
+                            }
                         })->args($connection)->runWithClonedDiContainer();
                 } catch (SocketException|CoroutineException $exception) {
                     if (in_array($exception->getCode(), [Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM], true)) {
