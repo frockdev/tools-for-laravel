@@ -191,6 +191,7 @@ class FrockLaravelStartSupport
         $this->runPrometheus();
         $this->runSystemMetricsCollector();
         if ($this->appModeResolver->isNatsAllowedToRun()) {
+            Log::info('Nats is allowed to run');
             $this->loadNatsService();
         }
         if ($this->appModeResolver->isHttpAllowedToRun()) {
@@ -240,6 +241,7 @@ class FrockLaravelStartSupport
 
     private function loadNatsService()
     {
+        Log::info('Starting Nats');
         /** @var NatsJetstreamProcessManager $natsJetStreamManager */
         $natsJetStreamManager = app()->make(NatsJetstreamProcessManager::class);
         $natsJetStreamManager->registerProcesses();
@@ -255,6 +257,7 @@ class FrockLaravelStartSupport
 
     private function runPrometheus()
     {
+        Log::info('Starting Prometheus');
         /** @var PrometheusHttpProcessManager $prometheusManager */
         $prometheusManager = app()->make(PrometheusHttpProcessManager::class);
         $prometheusManager->registerProcesses();
@@ -262,6 +265,7 @@ class FrockLaravelStartSupport
 
     private function runSystemMetricsCollector()
     {
+        Log::info('Starting System Metrics Collector');
         /** @var SystemMetricsProcessManager $systemMetricsManager */
         $systemMetricsManager = app()->make(SystemMetricsProcessManager::class);
         $systemMetricsManager->registerProcesses();

@@ -39,6 +39,7 @@ class NatsQueueConsumerProcess extends AbstractProcess
             ->charge(function (WaitGroup $group) {
                 try {
                     $driver = new NatsDriver($this->subject . '_' . Str::random());
+                    Log::info('Subscribing to queue ' . $this->queueName . ' with subject ' . $this->subject . ' and endpoint ' . get_class($this->endpoint));
                     $driver->subscribeWithEndpoint(
                         $this->subject,
                         $this->endpoint,

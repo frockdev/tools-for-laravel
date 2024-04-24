@@ -9,6 +9,7 @@ use FrockDev\ToolsForLaravel\FeatureFlags\EndpointFeatureFlagManager;
 use FrockDev\ToolsForLaravel\Swow\Processes\AbstractProcess;
 use FrockDev\ToolsForLaravel\Swow\Processes\NatsQueueConsumerProcess;
 use FrockDev\ToolsForLaravel\Swow\Processes\ProcessesRegistry;
+use Illuminate\Support\Facades\Log;
 
 class NatsQueueProcessManager {
 
@@ -24,6 +25,7 @@ class NatsQueueProcessManager {
     }
 
     public function registerProcesses() {
+        Log::info('Registering Nats Queue processes');
         $classes = $this->collector->getClassesByAnnotation(Nats::class);
 
         foreach ($classes as $endpointClassName => $classAttributesInfo) {
@@ -45,6 +47,7 @@ class NatsQueueProcessManager {
                 }
                 /** @var Nats $attributeExemplar */
                 $attributeExemplar = new $attributeClassName(...$attributeInfo->getArguments());
+                Log::info('Registering process: '.$attributeExemplar->name.'-'.$attributeExemplar->subject.'-'.$attributeExemplar->queueName);
                 /** @var AbstractProcess $process */
                 $process = $this->createProcess(
                     app()->make($endpointClassName),
@@ -60,6 +63,7 @@ class NatsQueueProcessManager {
 
     private function createProcess(object $consumer, string $subject, string $queueName, bool $disableSpatieValidation): AbstractProcess
     {
+        Log::info('Constructing NatsQueueConsumerProcess for '.$subject.'-'.$queueName);
         return new NatsQueueConsumerProcess($consumer, $subject, $queueName, $disableSpatieValidation);
     }
 

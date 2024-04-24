@@ -43,6 +43,7 @@ class NatsDriver
         ContextStorage::setSystemChannel('natsReceiveChannel_'.$this->name, new Channel());
         Co::define($this->name.'_nats_receiving_'.$namePostfix)
             ->charge(function () {
+                Log::info('NatsDriver: starting receiving messages natsReceiveChannel_'.$this->name);
             while(true) {
                 try {
                     $this->client->startReceiving(ContextStorage::getSystemChannel('natsReceiveChannel_'.$this->name));

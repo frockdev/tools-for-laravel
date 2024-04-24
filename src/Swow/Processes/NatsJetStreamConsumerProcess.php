@@ -48,6 +48,7 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
             ->charge(function (WaitGroup $group) {
                 try {
                     $driver = new NatsDriver($this->subject.'_'.$this->streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
+                    Log::info('Subscribing to JetStream stream '.$this->streamName.' with subject '.$this->subject.' and endpoint '.get_class($this->endpoint));
                     $driver->subscribeToJetstreamWithEndpoint(
                         subject: $this->subject,
                         streamName: $this->streamName,

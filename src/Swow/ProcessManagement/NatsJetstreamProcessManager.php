@@ -11,6 +11,7 @@ use FrockDev\ToolsForLaravel\FeatureFlags\EndpointFeatureFlagManager;
 use FrockDev\ToolsForLaravel\Swow\Processes\AbstractProcess;
 use FrockDev\ToolsForLaravel\Swow\Processes\NatsJetStreamConsumerProcess;
 use FrockDev\ToolsForLaravel\Swow\Processes\ProcessesRegistry;
+use Illuminate\Support\Facades\Log;
 
 class NatsJetstreamProcessManager {
 
@@ -26,6 +27,7 @@ class NatsJetstreamProcessManager {
     }
 
     public function registerProcesses() {
+        Log::info('Registering Nats Jetstream processes');
         $classes = $this->collector->getClassesByAnnotation(NatsJetstream::class);
 
         foreach ($classes as $endpointClassName => $classAttributesInfo) {
@@ -47,6 +49,7 @@ class NatsJetstreamProcessManager {
                 }
                 /** @var NatsJetstream $attributeExemplar */
                 $attributeExemplar = new $attributeClassName(...$attributeInfo->getArguments());
+                Log::info('Registering process: '.$attributeExemplar->name.'-'.$attributeExemplar->subject.'-'.$attributeExemplar->streamName);
                 /** @var AbstractProcess $process */
                 $process = $this->createProcess(
                     app()->make($endpointClassName),
@@ -65,6 +68,7 @@ class NatsJetstreamProcessManager {
 
     private function createProcess(object $consumer, string $subject, string $stream, ?int $periodInMicroseconds=null, bool $disableSpatieValidation=false, $deliverPolicy = DeliverPolicy::NEW, $ackPolicy=AckPolicy::NONE): AbstractProcess
     {
+        Log::info('Constructing process: '.$subject.'-'.$stream.'-'.$stream);
         return new NatsJetStreamConsumerProcess($consumer, $subject, $stream, $periodInMicroseconds, $disableSpatieValidation, $deliverPolicy, $ackPolicy);
     }
 
