@@ -199,7 +199,7 @@ class NewNatsClient
             $buffer = new \Swow\Buffer(\Swow\Buffer::COMMON_SIZE);
             $this->socket->recv(
                 buffer: $buffer,
-                timeout: $this->configuration->timeout * 1000
+                timeout: $this->configuration->timeout * 1000 * 1000
             );
             $data = $buffer->toString();
             $this->innerBuffer .= $data;
