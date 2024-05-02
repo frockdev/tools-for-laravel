@@ -168,8 +168,11 @@ class NewNatsClient
         }
 
         try {
+            Log::info('Connecting to NATS', ['host' => $this->configuration->host, 'port' => $this->configuration->port]);
             $this->socket = new Socket(Socket::TYPE_TCP);
             $this->socket->connect($this->configuration->host, $this->configuration->port, 10000);
+            Log::info('Seems connected', ['host' => $this->configuration->host, 'port' => $this->configuration->port]);
+            sleep(1);
         } catch (SocketException $e) {
             Log::error('Socket error: ' . $e->getMessage(), ['exception' => $e]);
             $this->socket = null;
@@ -195,6 +198,8 @@ class NewNatsClient
     }
 
     protected function readLinesIntoBuffer() {
+        Log::info('Reading lines from socket...');
+        sleep(1);
         try {
             $buffer = new \Swow\Buffer(\Swow\Buffer::COMMON_SIZE);
             $this->socket->recv(
@@ -203,6 +208,8 @@ class NewNatsClient
             );
             $data = $buffer->toString();
             $this->innerBuffer .= $data;
+            Log::info('Read ' . strlen($data) . ' bytes into buffer: '.$data);
+            sleep(1);
         } catch (SocketException $e) {
             if (str_starts_with($e->getMessage(), 'Socket read wait failed, reason: Timed out for')) {
                 //lets just send ping and try again
@@ -245,6 +252,7 @@ class NewNatsClient
                 $this->connect();
 
                 if ($this->innerBuffer === '') {
+                    Log::info('Reading lines into buffer...');
                     $this->readLinesIntoBuffer();
                 }
 
