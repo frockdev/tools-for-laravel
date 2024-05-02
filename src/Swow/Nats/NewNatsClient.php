@@ -263,7 +263,7 @@ class NewNatsClient
                         $this->pong();
                         continue 2;
                     case 'PONG':
-                        Log::debug('Got PONG');
+                        Log::info('Got PONG');
                         continue 2;
 
                     case '+OK':
