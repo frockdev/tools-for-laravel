@@ -170,6 +170,15 @@ class NewNatsClient
         try {
             Log::info('Connecting to NATS', ['host' => $this->configuration->host, 'port' => $this->configuration->port]);
             $this->socket = new Socket(Socket::TYPE_TCP);
+            if (!$this->configuration->tlsCertFile) {
+                $this->socket->enableCrypto([
+                    'verify_peer'=>false,
+                    'verify_peer_name'=>false,
+                    'allow_self_signed'=>true,
+                    'certificate' => $this->configuration->tlsCertFile,
+                    'certificate_key' => $this->configuration->tlsKeyFile,
+                ]);
+            }
             $this->socket->connect($this->configuration->host, $this->configuration->port, 10000);
             Log::info('Seems connected', ['host' => $this->configuration->host, 'port' => $this->configuration->port]);
         } catch (SocketException $e) {

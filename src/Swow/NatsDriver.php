@@ -35,6 +35,8 @@ class NatsDriver
             'user'=>config('nats.user', env('NATS_USER', '')),
             'pass'=>config('nats.pass', env('NATS_PASS', '')),
             'timeout'=>(float)config('nats.timeout', (float)env('NATS_TIMEOUT', 1)),
+            'tlsCertFile'=>config('nats.tlsCertFile', env('NATS_TLS_CERT_FILE')),
+            'tlsKeyFile'=>config('nats.tlsKeyFile', env('NATS_TLS_KEY_FILE')),
         ]);
         $this->client = new NewNatsClient($this->currentConfig, $this->name);
     }
