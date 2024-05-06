@@ -4,6 +4,7 @@ namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
+use FrockDev\ToolsForLaravel\Swow\NewNatsDriver;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Swow\Coroutine;
@@ -38,7 +39,7 @@ class NatsQueueConsumerProcess extends AbstractProcess
         Co::define($this->name . '_ConsumerProcess' . $this->subject . '_' . Str::random())
             ->charge(function (WaitGroup $group) {
                 try {
-                    $driver = new NatsDriver($this->subject . '_' . Str::random());
+                    $driver = new NewNatsDriver($this->subject . '_' . Str::random());
                     Log::info('Subscribing to queue ' . $this->queueName . ' with subject ' . $this->subject . ' and endpoint ' . get_class($this->endpoint));
                     $driver->subscribeWithEndpoint(
                         $this->subject,
@@ -48,6 +49,7 @@ class NatsQueueConsumerProcess extends AbstractProcess
                     );
                 } catch (\Throwable $e) {
                     Log::critical('Error while processing queue consumer', ['error' => $e->getMessage()]);
+                    sleep(1);
                     $group->done();
                 }
             })->args($group)
