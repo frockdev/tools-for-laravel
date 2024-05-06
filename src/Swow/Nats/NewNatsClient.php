@@ -20,10 +20,13 @@ use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use LogicException;
 use Swow\Channel;
-use Swow\Socket;
-use Swow\SocketException;
+use Throwable;
 
+/**
+ * @deprecated
+ */
 class NewNatsClient
 {
     private Connect $connect;
@@ -44,7 +47,7 @@ class NewNatsClient
     }
 
     protected Configuration $configuration;
-    protected ?\Swow\Socket $socket = null;
+    protected $socket = null;
 
     public function getApi(): SwowNatsApi
     {
@@ -68,8 +71,7 @@ class NewNatsClient
             $context->result = $result;
             $channel->push($context);
         });
-        $context = $channel->pop($timeout*1000+5000); //todo need to normalize timeout
-
+        $context = $channel->pop($timeout*1000000);
         return $context->result;
     }
 
@@ -162,6 +164,8 @@ class NewNatsClient
         Log::debug('Published to '.$name.' '.$payloadObj->render());
     }
 
+    private $context;
+
     protected function connect() {
         if ($this->socket) {
             return;
@@ -169,19 +173,16 @@ class NewNatsClient
 
         try {
             Log::info('Connecting to NATS', ['host' => $this->configuration->host, 'port' => $this->configuration->port]);
-            $this->socket = new Socket(Socket::TYPE_TCP);
-            $this->socket->connect($this->configuration->host, $this->configuration->port, 10000);
-//            if ($this->configuration->tlsCertFile) {
-//                $this->socket->enableCrypto([
-//                    'verify_peer'=>false,
-//                    'verify_peer_name'=>false,
-//                    'allow_self_signed'=>true,
-//                    'certificate' => $this->configuration->tlsCertFile,
-//                    'certificate_key' => $this->configuration->tlsKeyFile,
-//                ]);
-//            }
+
+            $config = $this->configuration;
+
+            $dsn = "$config->host:$config->port";
+            $flags = STREAM_CLIENT_CONNECT;
+            $this->context = stream_context_create();
+            $this->socket = @stream_socket_client($dsn, $errorCode, $errorMessage, $config->timeout, $flags, $this->context);
+
             Log::info('Seems connected', ['host' => $this->configuration->host, 'port' => $this->configuration->port]);
-        } catch (SocketException $e) {
+        } catch (\Throwable $e) {
             Log::error('Socket error: ' . $e->getMessage(), ['exception' => $e]);
             $this->socket = null;
             throw $e;
@@ -189,47 +190,50 @@ class NewNatsClient
         $this->connect = new Connect($this->configuration->getOptions());
 
         $this->send($this->connect);
-        Log::debug('Connected to NATS.');
+        Log::info('Now we are really connected to NATS', ['host' => $this->configuration->host, 'port' => $this->configuration->port]);
     }
 
     protected function send(Prototype $message): void
     {
         $this->connect();
-        $line = $message->render() . "\r\n";
 
-        try {
-            $this->socket->send($line);
-        } catch (\Throwable $e) {
-            Log::debug('Problem with sending: ' . $e->getMessage(), ['exception' => $e, 'line' => $line]);
-            throw $e;
+        $line = $message->render() . "\r\n";
+        $length = strlen($line);
+
+        while (strlen($line)) {
+            try {
+                $written = @fwrite($this->socket, $line, 1024);
+                if ($written === false) {
+                    throw new LogicException('Error sending data');
+                }
+                if ($written === 0) {
+                    throw new LogicException('Broken pipe or closed connection');
+                }
+                if ($length == $written) {
+                    break;
+                }
+                $line = substr($line, $written);
+            } catch (Throwable $e) {
+                Log::debug('Problem with sending: ' . $e->getMessage(), ['exception' => $e, 'line' => $line]);
+                throw $e;
+            }
         }
     }
 
     protected function readLinesIntoBuffer() {
-        try {
-            $buffer = new \Swow\Buffer(\Swow\Buffer::COMMON_SIZE);
-            $this->socket->recv(
-                buffer: $buffer,
-                timeout: $this->configuration->timeout * 1000 * 1000
-            );
-            $data = $buffer->toString();
+        $data = stream_get_line($this->socket, 1024);
+        if ($data) {
             $this->innerBuffer .= $data;
-            if (strlen($data)===0) {
-                Log::info('No data received. Sending PING.');
+            Log::info('Data received: ' . $data);
+        } else {
+            Log::info('No data received. Sending PING.');
+            if ($this->lastPingCount>9) {
+                $this->lastPingCount = 0;
                 $this->ping();
-                sleep(1);
+            } else {
+                $this->lastPingCount++;
             }
-        } catch (SocketException $e) {
-            if (str_starts_with($e->getMessage(), 'Socket read wait failed, reason: Timed out for')) {
-                //lets just send ping and try again
-                //lets ping eveery 10th time
-                if ($this->lastPingCount>9) {
-                    $this->lastPingCount = 0;
-                    $this->ping();
-                } else {
-                    $this->lastPingCount++;
-                }
-            }
+            sleep(1);
         }
     }
 
