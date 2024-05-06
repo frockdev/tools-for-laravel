@@ -13,7 +13,7 @@
         "friendsofphp/php-cs-fixer": "^3.19",
         "spatie/laravel-data": "4.4.1",
         "jonahgeorge/jaeger-client-php": "1.5.0",
-        "basis-company/nats": "0.18.0",
+        "basis-company/nats": "0.22.0",
         "promphp/prometheus_client_php": "^2.8",
         "barryvdh/laravel-ide-helper": "v3.0.0",
         "swow/swow": "^1.4",
