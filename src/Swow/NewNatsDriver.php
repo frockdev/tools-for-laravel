@@ -40,6 +40,7 @@ class NewNatsDriver implements NatsDriverInterface
             'timeout'=>(float)config('nats.timeout', (float)env('NATS_TIMEOUT', 1)),
             'tlsCertFile'=>config('nats.tlsCertFile', env('NATS_TLS_CERT_FILE')),
             'tlsKeyFile'=>config('nats.tlsKeyFile', env('NATS_TLS_KEY_FILE')),
+            'tlsCaFile'=>config('nats.tlsCAFile', env('NATS_TLS_CA_FILE')),
         ]);
         $this->client = new Client($this->currentConfig, app()->make(LoggerInterface::class));
     }
