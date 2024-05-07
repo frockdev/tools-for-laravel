@@ -9,6 +9,7 @@ use FrockDev\ToolsForLaravel\Console\GenerateEndpoints;
 use FrockDev\ToolsForLaravel\Console\GenerateGrafanaMetrics;
 use FrockDev\ToolsForLaravel\Console\GenerateHttpFiles;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Storage;
+use FrockDev\ToolsForLaravel\Swow\Logging\Masko;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactory;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
 use Illuminate\Support\ServiceProvider;
@@ -40,6 +41,9 @@ class FrockServiceProvider extends ServiceProvider
         $collector = new Collector(app());
         $collector->collect(app_path());
 
+        $this->app->bind(Masko::class, function () {
+            return Masko::getInstance();
+        });
 
         //@todo should make tracer async
         $this->app->singleton(Tracer::class, function($app) {

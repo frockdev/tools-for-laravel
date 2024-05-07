@@ -6,7 +6,7 @@ use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\LogRecord;
 
-class CoroutineTolerantLogger extends AbstractProcessingHandler
+class CoroutineTolerantHandler extends AbstractProcessingHandler
 {
     protected function write(LogRecord $record): void
     {

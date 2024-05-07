@@ -12,7 +12,16 @@ class ContextStorage
         'systemChannels' => [],
         'containers' => [],
         'interStreamInstances' => [],
+        'interStreamStrings' => [],
     ];
+
+    public static function setInterStreamString(string $value) {
+        self::$storage['interStreamStrings'][] = $value;
+    }
+
+    public static function getInterStreamStrings() {
+        return self::$storage['interStreamStrings'];
+    }
 
     public static function setInterStreamInstance($abstract, $instance) {
         self::$storage['interStreamInstances'][$abstract] = $instance;

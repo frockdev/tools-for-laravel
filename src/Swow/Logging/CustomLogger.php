@@ -15,7 +15,7 @@ class CustomLogger
         $logger = new Logger(
             env('APP_NAME'),
             [
-                new CoroutineTolerantLogger($config['level'] ?? Level::Debug),
+                new CoroutineTolerantHandler($config['level'] ?? Level::Debug),
             ]
         );
         $logger->useLoggingLoopDetection(false);

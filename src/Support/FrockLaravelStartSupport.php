@@ -7,6 +7,7 @@ use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\Logging\CustomLogger;
 use FrockDev\ToolsForLaravel\Swow\Logging\LogMessage;
+use FrockDev\ToolsForLaravel\Swow\Logging\ValuesMaskJsonFormatter;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\CustomProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\HttpProcessManager;
 use FrockDev\ToolsForLaravel\Swow\ProcessManagement\LivenessProcessManager;
@@ -220,7 +221,7 @@ class FrockLaravelStartSupport
             'level'=>env('LOG_LEVEL', 'error'),
             'via' => CustomLogger::class,
         ]]);
-        config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER', JsonFormatter::class)]);
+        config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER', ValuesMaskJsonFormatter::class)]);
         config(['logging.default'=>'custom']);
         $channel = new Channel(1000);
         ContextStorage::setSystemChannel('log', $channel);
