@@ -16,7 +16,7 @@ class ContextStorage
     ];
 
     public static function setInterStreamString(string $value) {
-        self::$storage['interStreamStrings'][] = $value;
+        self::$storage['interStreamStrings'][$value] = $value;
     }
 
     public static function getInterStreamStrings() {
