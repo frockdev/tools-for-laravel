@@ -48,7 +48,7 @@ class NatsQueueConsumerProcess extends AbstractProcess
                         $this->disableSpatieValidation
                     );
                 } catch (\Throwable $e) {
-                    Log::critical('Error while processing queue consumer', ['error' => $e->getMessage()]);
+                    Log::critical('Error while processing queue consumer', ['error' => $e]);
                     sleep(1);
                     $group->done();
                 }
