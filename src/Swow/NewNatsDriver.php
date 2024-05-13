@@ -217,11 +217,13 @@ class NewNatsDriver implements NatsDriverInterface
                     }
                     $consumer->handle(
                         messageHandler: $callback,
-                        emptyHandler: function(Payload $payload, ?string $replyTo) {
-                        if ($payload->hasHeader('Status-Code')) {
-                            if ($payload->getHeader('Status-Code') != "200") {
-                                throw new LogicException('NATS. Error code detected: ' . $payload->getHeader('Status-Code')
-                                    . ' '.$payload->getHeader('Status-Message'));
+                        emptyHandler: function(?Payload $payload = null, ?string $replyTo = null) {
+                        if ($payload) {
+                            if ($payload->hasHeader('Status-Code')) {
+                                if ($payload->getHeader('Status-Code') != "200") {
+                                    throw new LogicException('NATS. Error code detected: ' . $payload->getHeader('Status-Code')
+                                        . ' '.$payload->getHeader('Status-Message'));
+                                }
                             }
                         }
                     },
