@@ -243,7 +243,7 @@ class NatsDriver implements NatsDriverInterface
         }
     }
 
-    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queue=null, bool $disableSpatieValidation = false) {
+    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queueName=null, bool $disableSpatieValidation = false) {
         $controller = function (Request $request) use ($endpoint, $disableSpatieValidation) {
             $endpoint->setContext($request->headers->all());
             $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
@@ -258,25 +258,25 @@ class NatsDriver implements NatsDriverInterface
             $result = $endpoint->__invoke($dto);
             return $result;
         };
-        $callback = function(Payload $payload) use ($subject, $queue) {
+        $callback = function(Payload $payload) use ($subject, $queueName) {
             $resultChannel = new Channel(1);
             ContextStorage::set('x-trace-id', $payload->getHeader('x-trace-id')??uuid_create());
-            Co::define('subject_'.$subject.'_queue_'.($queue??'').'_nats_routing_function')
+            Co::define('subject_'.$subject.'_queue_'.($queueName??'').'_nats_routing_function')
                 ->charge(function($subject, $payload, $queue=null) use ($resultChannel) {
                 $resultChannel->push(
                     $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, queue: $queue)
                 );
-            })->args($subject, $payload, $queue)
+            })->args($subject, $payload, $queueName)
                 ->runWithClonedDiContainer();
             return $resultChannel->pop();
         };
         try {
-            if (!$queue) {
+            if (!$queueName) {
                 Route::post($subject, $controller);
                 $this->client->subscribe($subject, $callback);
             } else {
-                Route::post($subject . '/' . $queue, $controller);
-                $this->client->subscribeQueue($subject, $queue, $callback);
+                Route::post($subject . '/' . $queueName, $controller);
+                $this->client->subscribeQueue($subject, $queueName, $callback);
             }
         } catch (Throwable $exception) {
             throw $exception;

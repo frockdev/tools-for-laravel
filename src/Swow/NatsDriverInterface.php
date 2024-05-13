@@ -25,5 +25,5 @@ interface NatsDriverInterface
 
     public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $periodInMicroseconds=null, $disableSpatieValidation = false, $deliverPolicy = DeliverPolicy::NEW, $ackPolicy = AckPolicy::NONE);
 
-    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queue=null, bool $disableSpatieValidation = false);
+    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queueName=null, bool $disableSpatieValidation = false);
 }

@@ -250,7 +250,7 @@ class NewNatsDriver implements NatsDriverInterface
         }
     }
 
-    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queue=null, bool $disableSpatieValidation = false) {
+    public function subscribeWithEndpoint(string $subject, object $endpoint, ?string $queueName=null, bool $disableSpatieValidation = false) {
         $controller = function (Request $request) use ($endpoint, $disableSpatieValidation) {
             $endpoint->setContext($request->headers->all());
             $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
@@ -266,17 +266,17 @@ class NewNatsDriver implements NatsDriverInterface
             return $result;
         };
         //////////
-        if (!$queue) {
+        if (!$queueName) {
             Route::post($subject, $controller);
-            $queue = $this->client->subscribe($subject);
+            $queueObject = $this->client->subscribe($subject);
         } else {
-            Route::post($subject . '/' . $queue, $controller);
-            $queue = $this->client->subscribeQueue($subject, $queue);
+            Route::post($subject . '/' . $queueName, $controller);
+            $queueObject = $this->client->subscribeQueue($subject, $queueName);
         }
         //////////
 
         while (true) {
-            if (!($message = $queue->fetch())) {
+            if (!($message = $queueObject->fetch())) {
                 usleep(200000);
                 continue;
             }
@@ -284,7 +284,7 @@ class NewNatsDriver implements NatsDriverInterface
             $resultChannel = new Channel(1);
             $waitGroup = new WaitGroup();
             $waitGroup->add();
-            Co::define('subject_'.$subject.'_queue_'.($queue??'').'_nats_routing_function')
+            Co::define('subject_'.$subject.'_queue_'.($queueName??'').'_nats_routing_function')
                 ->charge(function($subject, $message, $resultChannel, WaitGroup $waitGroup) use ($endpoint) {
                     $resultChannel->push(
                         $this->runThroughKernel(subject: $subject, body: $message->body, headers: $message->headers)
