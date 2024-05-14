@@ -13,10 +13,25 @@ class ContextStorage
         'containers' => [],
         'interStreamInstances' => [],
         'interStreamStrings' => [],
+        'logContext'=>[]
     ];
 
     public static function setInterStreamString(string $value) {
         self::$storage['interStreamStrings'][$value] = $value;
+    }
+
+    public static function addLogContext($key, $value) {
+        $coroutineId = \Swow\Coroutine::getCurrent()->getId();
+        self::$storage['logContext'][$coroutineId][$key] = $value;
+    }
+
+    public static function getLogContext() {
+        $coroutineId = \Swow\Coroutine::getCurrent()->getId();
+        return self::$storage['logContext'][$coroutineId] ?? [];
+    }
+
+    public static function cloneLogContextFromFirstCoroutineToSecond(int $firstCoroutineId, int $secondCoroutineId) {
+        self::$storage['logContext'][$secondCoroutineId] = self::$storage['logContext'][$firstCoroutineId];
     }
 
     public static function getInterStreamStrings() {
