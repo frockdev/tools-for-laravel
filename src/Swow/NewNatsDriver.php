@@ -285,9 +285,9 @@ class NewNatsDriver implements NatsDriverInterface
             $waitGroup = new WaitGroup();
             $waitGroup->add();
             Co::define('subject_'.$subject.'_queue_'.($queueName??'').'_nats_routing_function')
-                ->charge(function($subject, $message, $resultChannel, WaitGroup $waitGroup) use ($endpoint) {
+                ->charge(function(string $subject, \Basis\Nats\Message\Msg $message, Channel $resultChannel, WaitGroup $waitGroup) use ($endpoint) {
                     $resultChannel->push(
-                        $this->runThroughKernel(subject: $subject, body: $message->body, headers: $message->headers)
+                        $this->runThroughKernel(subject: $subject, body: $message->payload->body, headers: $message->payload->headers)
                     );
                     $waitGroup->done();
                 })->args($subject, $message, $resultChannel, $waitGroup)
