@@ -11,6 +11,7 @@ use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Transport\AbstractMessage;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -281,18 +282,40 @@ class NewNatsDriver implements NatsDriverInterface
                 continue;
             }
 
-            $resultChannel = new Channel(1);
+
             $waitGroup = new WaitGroup();
             $waitGroup->add();
             Co::define('subject_'.$subject.'_queue_'.($queueName??'').'_nats_routing_function')
-                ->charge(function(string $subject, \Basis\Nats\Message\Msg $message, Channel $resultChannel, WaitGroup $waitGroup) use ($endpoint) {
-                    $resultChannel->push(
-                        $this->runThroughKernel(subject: $subject, body: $message->payload->body, headers: $message->payload->headers)
-                    );
+                ->charge(function(string $subject, \Basis\Nats\Message\Msg $message, WaitGroup $waitGroup, ?string $queueName=null) use ($endpoint) {
+                    $result = $this->runThroughKernel(subject: $subject, body: $message->payload->body, headers: $message->payload->headers, queue: $queueName);
+
+                    $this->replyToIfNeeded($message, $result);
+
                     $waitGroup->done();
-                })->args($subject, $message, $resultChannel, $waitGroup)
+                })->args($subject, $message, $waitGroup, $queueName)
                 ->runWithClonedDiContainer();
             $waitGroup->wait();
+        }
+    }
+
+    public function replyToIfNeeded(\Basis\Nats\Message\Msg $message, \Symfony\Component\HttpFoundation\Response $result) {
+        if ($message->replyTo) {
+            if ($result instanceof JsonResponse) {
+                $payloadObj = Payload::parse($result->getContent());
+                $payloadObj->headers = array_map(function ($header) {
+                    return $header[0];
+                }, $result->headers->all());
+            } elseif (is_string($result)) {
+                $payloadObj = Payload::parse($result);
+            } else {
+                $payloadObj = Payload::parse(json_encode($result));
+            }
+
+            $this->client->publish(
+                $message->replyTo,
+                $payloadObj,
+            );
+            Log::info('Replied to ' . $message->replyTo . ' with ' . $payloadObj->render());
         }
     }
 }
