@@ -2,17 +2,12 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Co;
 
-use FrockDev\ToolsForLaravel\Swow\CleanEvents\ContainerCreated;
-use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestFinished;
-use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Container\Container;
-use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
-use Laravel\Octane\ApplicationFactory;
 use Laravel\Octane\ApplicationGateway;
-use Laravel\Octane\Listeners\DisconnectFromDatabases;
+use Swow\Coroutine;
 use Swow\Sync\WaitGroup;
 
 class Co
@@ -113,7 +108,9 @@ class Co
             $newContainer = ContextStorage::getApplication();
         }
         $currentTraceId = ContextStorage::get('x-trace-id');
-        $coroutine = new \Swow\Coroutine(function ($callable, Application $newContainer, $processName, $traceId, $delay, $oldContainer, ...$args) use ($waitGroup) {
+        $oldCurrentCoroutineId = Coroutine::getCurrent()->getId();
+        $coroutine = new \Swow\Coroutine(function ($callable, Application $newContainer, $processName, $traceId, $delay, $oldContainer, ...$args) use ($waitGroup, $oldCurrentCoroutineId) {
+            ContextStorage::cloneLogContextFromFirstCoroutineToSecond($oldCurrentCoroutineId, Coroutine::getCurrent()->getId());
             ContextStorage::setCurrentRoutineName($processName);
             ContextStorage::setApplication($newContainer);
             if ($traceId) {
