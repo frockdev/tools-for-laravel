@@ -13,8 +13,11 @@ class CoroutineTolerantHandler extends AbstractProcessingHandler
         $severity = $record->level->getName();
         $message = $record->message;
         $context = $record->context ?? [];
-        $context['x-trace-id'] = ContextStorage::get('x-trace-id');
+        if (ContextStorage::get('x-trace-id')) {
+            $context['x-trace-id'] = ContextStorage::get('x-trace-id');
+        }
         $context['ProcessName'] = ContextStorage::getCurrentRoutineName();
+        $context = array_merge($context, ContextStorage::getLogContext());
         ContextStorage::getSystemChannel('log')->push(
             new LogMessage(
                 $severity,
