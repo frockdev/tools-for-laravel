@@ -31,6 +31,10 @@ class ContextStorage
     }
 
     public static function cloneLogContextFromFirstCoroutineToSecond(int $firstCoroutineId, int $secondCoroutineId) {
+        if (!isset(self::$storage['logContext'][$firstCoroutineId])) {
+            self::$storage['logContext'][$secondCoroutineId] = [];
+            return;
+        }
         self::$storage['logContext'][$secondCoroutineId] = self::$storage['logContext'][$firstCoroutineId];
     }
 
