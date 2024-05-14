@@ -39,6 +39,10 @@ class Masko
         }
     }
 
+    /**
+     * @return array|mixed
+     * @deprecated
+     */
     public static function getInterStreamStrings()
     {
         return ContextStorage::getInterStreamStrings();
