@@ -34,6 +34,7 @@ class NewNatsDriver implements NatsDriverInterface
     {
         $this->name = $name;
         $this->currentConfig = new \Basis\Nats\Configuration([
+            'reconnect'=>false, //пусть лучше процесс консьюминга целиком перезапустится
             'host'=>config('nats.host', env('NATS_HOST', 'nats.nats')),
             'port'=>(int)config('nats.port', env('NATS_PORT', 4222)),
             'user'=>config('nats.user', env('NATS_USER', '')),
