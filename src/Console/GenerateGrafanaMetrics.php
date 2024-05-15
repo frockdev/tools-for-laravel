@@ -103,6 +103,7 @@ class GenerateGrafanaMetrics extends Command
                 config_json = file("'.$pathToJsonBoard.'")
                 folder = grafana_folder.'.$folderTerraformName.'.id
                 depends_on = [grafana_folder.'.$folderTerraformName.']
+                org_id = var.org_id
             }
         ';
         file_put_contents($pathToTerraformFile, $terraformFileContents);
@@ -373,6 +374,7 @@ class GenerateGrafanaMetrics extends Command
             $terraformResource = '
                 resource "grafana_folder" "'.strtolower($firstFolder).'_folder" {
                     title = "'.$firstFolder.'"
+                    org_id = var.org_id
                 }';
             file_put_contents($terraformPath.'/'.strtolower($firstFolder).'_folder.tf', $terraformResource);
             $parentFolder = strtolower($firstFolder);
@@ -381,6 +383,7 @@ class GenerateGrafanaMetrics extends Command
                     resource "grafana_folder" "'.$parentFolder.'_'.strtolower($folders[$i]).'_folder" {
                         title = "'.$folders[$i].'"
                         parent_folder_uid = grafana_folder.'.strtolower($folders[$i-1]).'_folder.uid
+                        org_id = var.org_id
                     }';
                 file_put_contents($terraformPath.'/'.$parentFolder.'_'.strtolower($folders[$i]).'_folder.tf', $terraformResource);
                 $parentFolder = $parentFolder.'_'.strtolower($folders[$i]);
