@@ -3,7 +3,6 @@
 namespace FrockDev\ToolsForLaravel\MetricsAbstractions;
 
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\CurrentNumberRenderer;
-use Hyperf\Metric\Contract\MetricFactoryInterface as Metrics;
 use Illuminate\Foundation\Application;
 
 abstract class AbstractMetric
@@ -36,8 +35,6 @@ abstract class AbstractMetric
             app()->singleton(static::METRIC_NAME.'.'.static::class, static::class);
             $metric = new static();
             app()->instance(static::METRIC_NAME.'.'.static::class, $metric);
-//            $metricManager = app()->get(\Hyperf\Nano\App::class)->getContainer()->get(Metrics::class);
-//            $metric->register($metricManager);
             return $metric;
         } else {
             return app()->get(static::METRIC_NAME.'.'.static::class);

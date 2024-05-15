@@ -74,7 +74,7 @@
             },
             "disableTextWrap": false,
             "editorMode": "code",
-            "expr": "irate({{ $applicationName }}_{{ $metricName }}{}[{{ $rateBy }}])",
+            "expr": "irate({{ $applicationName }}_{{ $metricName }}{}[$__rate_interval])",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,

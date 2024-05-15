@@ -26,7 +26,7 @@ class CurrentNumberRenderer implements GrafanaMetricRendererInterface
                 'yellowThreshold' => $this->metric::YELLOW_THRESHOLD,
                 'greenThreshold' => $this->metric::GREEN_THRESHOLD,
                 'rateBy' => $this->metric::RATE_BY,
-                'applicationName' => config('app.name'),
+                'applicationName' => str(config('app.name'))->lower()->snake(),
             ]
         );
         return json_decode($rendered, true);

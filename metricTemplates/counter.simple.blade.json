@@ -55,7 +55,7 @@
             "datasource": {
                 "uid": "$datasource"
             },
-            "expr": "avg_over_time({{ $applicationName }}_{{ $metricName }}{}[{{ $rateBy }}])",
+            "expr": "rate({{ $applicationName }}_{{ $metricName }}{}[$__rate_interval])",
             "instant": true,
             "interval": "",
             "legendFormat": "",

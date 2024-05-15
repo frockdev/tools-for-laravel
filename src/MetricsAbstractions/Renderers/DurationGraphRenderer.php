@@ -22,7 +22,7 @@ class DurationGraphRenderer implements GrafanaMetricRendererInterface
             [
                 'metricName' => $this->metric::METRIC_NAME,
                 'rateBy' => $this->metric::RATE_BY,
-                'applicationName' => config('app.name'),
+                'applicationName' => str(config('app.name'))->lower()->snake(),
             ]
         );
         return json_decode($rendered, true);
