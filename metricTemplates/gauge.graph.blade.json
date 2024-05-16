@@ -74,7 +74,7 @@
             },
             "disableTextWrap": false,
             "editorMode": "code",
-            "expr": "rate({{ $applicationName }}_{{ $metricName }}{}[$__rate_interval])",
+            "expr": "{{ $applicationName }}_{{ $metricName }}{}",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
