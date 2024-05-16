@@ -5,7 +5,6 @@ namespace FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetrics;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetric;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Controls\CounterControlTrait;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\CurrentNumberRenderer;
-use Hyperf\Metric\Contract\MetricFactoryInterface as Metrics;
 
 abstract class CurrentNumberMetric extends AbstractMetric
 {

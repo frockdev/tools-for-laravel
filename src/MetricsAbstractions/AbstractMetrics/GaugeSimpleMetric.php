@@ -4,10 +4,10 @@ namespace FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetrics;
 
 use FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetric;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Controls\GaugeControlTrait;
-use FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\GaugeGraphRenderer;
+use FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\GaugeSimpleRenderer;
 
-abstract class GaugeGraphMetric extends AbstractMetric
+abstract class GaugeSimpleMetric extends AbstractMetric
 {
     use GaugeControlTrait;
-    const RENDERER = GaugeGraphRenderer::class;
+    const RENDERER = GaugeSimpleRenderer::class;
 }
