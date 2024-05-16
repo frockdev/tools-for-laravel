@@ -6,7 +6,7 @@ use FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetric;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\GrafanaMetricRendererInterface;
 use Illuminate\Support\Facades\Blade;
 
-class DurationGraphRenderer implements GrafanaMetricRendererInterface
+class CountIRateRenderer implements GrafanaMetricRendererInterface
 {
     private AbstractMetric $metric;
 
@@ -17,7 +17,7 @@ class DurationGraphRenderer implements GrafanaMetricRendererInterface
 
     public function renderMetric(): array
     {
-        $templateString = file_get_contents(app_path().'/../vendor/frock-dev/tools-for-laravel/metricTemplates/counter.rate.blade.json');
+        $templateString = file_get_contents(app_path().'/../vendor/frock-dev/tools-for-laravel/metricTemplates/counter.irate.blade.json');
         $rendered = Blade::render($templateString,
             [
                 'metricName' => $this->metric::METRIC_NAME,

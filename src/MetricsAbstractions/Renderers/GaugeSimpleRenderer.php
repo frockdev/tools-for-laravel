@@ -6,7 +6,7 @@ use FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetric;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\GrafanaMetricRendererInterface;
 use Illuminate\Support\Facades\Blade;
 
-class GaugeGraphRenderer implements GrafanaMetricRendererInterface
+class GaugeSimpleRenderer implements GrafanaMetricRendererInterface
 {
     private AbstractMetric $metric;
 
@@ -17,7 +17,7 @@ class GaugeGraphRenderer implements GrafanaMetricRendererInterface
 
     public function renderMetric(): array
     {
-        $templateString = file_get_contents(app_path().'/../vendor/frock-dev/tools-for-laravel/metricTemplates/gauge.graph.blade.json');
+        $templateString = file_get_contents(app_path().'/../vendor/frock-dev/tools-for-laravel/metricTemplates/gauge.simple.blade.json');
         $rendered = Blade::render($templateString,
             [
                 'metricName' => $this->metric::METRIC_NAME,

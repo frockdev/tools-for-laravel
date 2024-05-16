@@ -6,7 +6,7 @@ use FrockDev\ToolsForLaravel\MetricsAbstractions\AbstractMetric;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\GrafanaMetricRendererInterface;
 use Illuminate\Support\Facades\Blade;
 
-class CountGraphRenderer implements GrafanaMetricRendererInterface
+class CountRateRenderer implements GrafanaMetricRendererInterface
 {
     private AbstractMetric $metric;
 
@@ -17,7 +17,7 @@ class CountGraphRenderer implements GrafanaMetricRendererInterface
 
     public function renderMetric(): array
     {
-        $templateString = file_get_contents(app_path().'/../vendor/frock-dev/tools-for-laravel/metricTemplates/counter.graph.blade.json');
+        $templateString = file_get_contents(app_path().'/../vendor/frock-dev/tools-for-laravel/metricTemplates/counter.rate.blade.json');
         $rendered = Blade::render($templateString,
             [
                 'metricName' => $this->metric::METRIC_NAME,
