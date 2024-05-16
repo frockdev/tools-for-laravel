@@ -2,7 +2,8 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
-use FrockDev\ToolsForLaravel\BaseMetrics\MemoryRAMGaugeMetric;
+use FrockDev\ToolsForLaravel\BaseMetrics\GCCyclesCollectedMetric;
+use FrockDev\ToolsForLaravel\BaseMetrics\MemoryRAMGaugeSimpleMetric;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
@@ -64,7 +65,7 @@ class SystemMetricsProcess extends AbstractProcess
         $counterName = 'memory_usage';
         Co::define($this->getName() . '_' . $counterName)
             ->charge(function () use ($counterName) {
-                $coroutineGauge = MemoryRAMGaugeMetric::declare();
+                $coroutineGauge = MemoryRAMGaugeSimpleMetric::declare();
                 while (true) {
                     Liveness::setLiveness('memory_usage_control', 200, 'controlling', Liveness::MODE_EACH);
                     $coroutineGauge->set(memory_get_usage() / 1024 / 1024);
@@ -76,15 +77,14 @@ class SystemMetricsProcess extends AbstractProcess
             $counterName = 'gc_cycles_collected_count';
             Co::define($this->getName() . '_' . $counterName)
                 ->charge(function () use ($counterName, $allowedMemoryUsage) {
-                    $coroutineGauge = $this->registry->getOrRegisterGauge(
-                        $counterName,
-                        'gc_enabled',
-                        'gc_enabled');
+                    $coroutineGauge = GCCyclesCollectedMetric::declare();
                     while (true) {
                         Liveness::setLiveness('gc_control', 200, 'controlling', Liveness::MODE_EACH);
                         if (memory_get_usage() / 1024 / 1024 > $allowedMemoryUsage) {
                             $cycles = gc_collect_cycles();
                             $coroutineGauge->set($cycles);
+                        } else {
+                            $coroutineGauge->set(0);
                         }
                         sleep(30);
                     }
