@@ -95,6 +95,7 @@ class ContextStorage
         unset(self::$storage[$coroutineId]);
         unset(self::$storage['containers'][$coroutineId]);
         unset(self::$storage['routineNames'][$coroutineId]);
+        unset(self::$storage['logContext'][$coroutineId]);
     }
 
     public static function setApplication(\Illuminate\Contracts\Container\Container|Application $application, int $coroutineId = null): void
