@@ -61,6 +61,7 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
                     );
                 } catch (\Throwable $e) {
                     Log::critical('Error while processing JetStream consumer', ['error' => $e->getMessage()]);
+                    sleep(5); //lets sleep there, because we don't want to spam logs
                     $group->done();
                 }
             })->args($group)

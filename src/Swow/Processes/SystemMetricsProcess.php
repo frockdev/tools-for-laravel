@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
+use FrockDev\ToolsForLaravel\BaseMetrics\MemoryRAMGaugeMetric;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
@@ -63,10 +64,7 @@ class SystemMetricsProcess extends AbstractProcess
         $counterName = 'memory_usage';
         Co::define($this->getName() . '_' . $counterName)
             ->charge(function () use ($counterName) {
-                $coroutineGauge = $this->registry->getOrRegisterGauge(
-                    $counterName,
-                    'memory_usage',
-                    'memory_usage');
+                $coroutineGauge = MemoryRAMGaugeMetric::declare();
                 while (true) {
                     Liveness::setLiveness('memory_usage_control', 200, 'controlling', Liveness::MODE_EACH);
                     $coroutineGauge->set(memory_get_usage() / 1024 / 1024);

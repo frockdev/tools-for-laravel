@@ -47,12 +47,10 @@ class PrometheusHttpProcess extends AbstractProcess
                                 try {
                                     $request = $connection->recvHttpRequest();
                                     switch ($request->getUri()->getPath()) {
+                                        case '/':
                                         case '/metrics':
                                             $renderer = new RenderTextFormat();
                                             $connection->respond($renderer->render($registry->getMetricFamilySamples()));
-                                            break;
-                                        case '/':
-                                            $connection->error(\Swow\Http\Status::NOT_FOUND, 'Not Found', close: true);
                                             break;
                                         default:
                                             $connection->error(\Swow\Http\Status::NOT_FOUND, 'Not Found', close: true);

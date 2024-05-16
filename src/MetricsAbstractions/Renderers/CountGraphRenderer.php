@@ -22,7 +22,7 @@ class CountGraphRenderer implements GrafanaMetricRendererInterface
             [
                 'metricName' => $this->metric::METRIC_NAME,
                 'rateBy' => $this->metric::RATE_BY,
-                'applicationName' => str(config('app.name'))->lower()->snake(),
+                'applicationName' => str(str_replace('-', '_', config('app.name'))),
             ]
         );
         return json_decode($rendered, true);

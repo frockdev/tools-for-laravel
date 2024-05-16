@@ -15,7 +15,7 @@ abstract class AbstractMetric
     const BUCKETS = [0.005, 0.01, 0.02, 0.04, 0.08, 0.15, 0.25, 0.50, 0.75, 1, 1.5, 3, 5, 8, 15];
     const FORMULAS = [];
     const RATE_BY = '1m';
-    const RENDERER = CurrentNumberRenderer::class;
+    const RENDERER = null;
     private Application $application;
 
     private function __construct()

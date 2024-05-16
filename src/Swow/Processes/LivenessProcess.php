@@ -41,15 +41,13 @@ class LivenessProcess extends AbstractProcess
                                 try {
                                     $request = $connection->recvHttpRequest();
                                     switch ($request->getUri()->getPath()) {
+                                        case '/':
                                         case '/liveness':
                                             $response = new Response();
                                             $response->setStatus($storage->calculateCommonCode());
                                             $response->addHeader('Content-Type', 'text/html');
                                             $response->setBody($storage->renderReportAsAHtmlTable());
                                             $connection->sendHttpResponse($response);
-                                            break;
-                                        case '/':
-                                            $connection->error(\Swow\Http\Status::NOT_FOUND, 'Not Found', close: true);
                                             break;
                                         default:
                                             $connection->error(\Swow\Http\Status::NOT_FOUND, 'Not Found', close: true);

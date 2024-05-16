@@ -2,6 +2,7 @@
 
 namespace FrockDev\ToolsForLaravel\Console;
 
+use FrockDev\ToolsForLaravel\BaseMetrics\MemoryRAMGaugeMetric;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\CurrentNumberRenderer;
 use Illuminate\Console\Command;
 use Nette\PhpGenerator\ClassType;
@@ -9,6 +10,11 @@ use Nette\PhpGenerator\ClassType;
 class GenerateGrafanaMetrics extends Command
 {
     protected $signature = 'frock:generate-grafana-metrics {appName?}';
+
+    private array $predefinedMetrics = [
+        MemoryRAMGaugeMetric::class
+    ];
+
     public function handle() {
         $appName = $this->argument('appName') ?? config('app.name');
         $boards = [];
@@ -30,6 +36,23 @@ class GenerateGrafanaMetrics extends Command
                 ];
             }
         }
+
+        foreach ($this->predefinedMetrics as $fullMetricClassName) {
+            $metricInfo = $this->getMetricInfoFromMetricClass($fullMetricClassName, $appName);
+            $metrics[$metricInfo['metricName'].'_'.$metricInfo['className']] = $metricInfo;
+            $this->info('Metric '.$metricInfo['metricName'].' from '.$metricInfo['from'].' has been found');
+            $renderer = app()->make($metricInfo['renderer'], ['metric'=>call_user_func($metricInfo['fullClassName'].'::getInstanceForRender')]);
+            $grafanaMetricArray = $renderer->renderMetric();
+            $grafanaMetricTerraformAlert = $renderer->renderAlerts();
+            if (!array_key_exists($metricInfo['boardName'], $boards)) $boards[$metricInfo['boardName']] = ['rows'=>[], 'name'=>$metricInfo['boardName']];
+            if (!array_key_exists($metricInfo['rowName'], $boards[$metricInfo['boardName']]['rows'])) $boards[$metricInfo['boardName']]['rows'][$metricInfo['rowName']] = ['panels'=>[]];
+            $boards[$metricInfo['boardName']]['rows'][$metricInfo['rowName']]['panels'][$metricInfo['metricName'].'_'.$metricInfo['className']] = [
+                'metric'=>$grafanaMetricArray,
+                'alert'=>$grafanaMetricTerraformAlert,
+            ];
+        }
+
+
         if (empty($boards)) {
             $this->info('No boards generated.');
             return;
@@ -147,27 +170,6 @@ class GenerateGrafanaMetrics extends Command
     }
 
     private function getBoardTemplate() {
-        //"templating": {
-        //    "list": [
-        //      {
-        //        "current": {
-        //          "selected": false,
-        //          "text": "PrometheusLocal",
-        //          "value": "f2b2dddc-9198-4aa2-b9bb-4c158d2bf0ab"
-        //        },
-        //        "hide": 0,
-        //        "includeAll": false,
-        //        "multi": false,
-        //        "name": "datasource",
-        //        "options": [],
-        //        "query": "prometheus",
-        //        "refresh": 1,
-        //        "regex": "",
-        //        "skipUrlSync": false,
-        //        "type": "datasource"
-        //      }
-        //    ]
-        //  },
         return [
             'title'=>'',
             'timezone'=>'browser',
@@ -188,6 +190,30 @@ class GenerateGrafanaMetrics extends Command
                     ],
                 ],
             ],
+        ];
+    }
+
+    private function getMetricInfoFromMetricClass(string $fullMetricClassName, string $appName) {
+        $classType = $this->createClassTypeByClassName($fullMetricClassName);
+        $metricName = $this->getMetricNameFromClassType($classType);
+        $description = $this->getMetricDescriptionFromClassType($classType);
+        $labels = $this->getMetricLabelsFromClassType($classType);
+        $rowName = $this->getRowNameFromClassType($classType);
+        $boardName = $this->getBoardNameFromClassType($classType, $appName);
+        $buckets = $this->getBucketsFromClassType($classType);
+        $renderer = $this->getRendererFromClassType($classType);
+        $explodedMetricName = explode('_', $metricName);
+        return [
+            'className'=>$explodedMetricName[count($explodedMetricName)-1],
+            'fullClassName'=>$fullMetricClassName,
+            'metricName'=>$metricName,
+            'description'=>$description,
+            'from'=>null,
+            'labels'=>$labels,
+            'rowName'=>$rowName,
+            'boardName'=>$boardName,
+            'buckets'=>$buckets,
+            'renderer'=>$renderer,
         ];
     }
 
@@ -331,7 +357,7 @@ class GenerateGrafanaMetrics extends Command
             throw new \Exception('Check Metrics. There is no BOARD_NAME constant in '.$classType->getName());
         }
         $appName = $this->fixNameFromAnyToCamelCase($appName);
-        return 'GeneratedBoards/'.$appName.'/'.$classType->getConstant('BOARD_NAME')->getValue();
+        return $appName.'/'.$classType->getConstant('BOARD_NAME')->getValue();
     }
 
     private function fixNameFromAnyToCamelCase(string $string): string
