@@ -2,7 +2,8 @@
 
 namespace FrockDev\ToolsForLaravel\Console;
 
-use FrockDev\ToolsForLaravel\BaseMetrics\MemoryRAMGaugeMetric;
+use FrockDev\ToolsForLaravel\BaseMetrics\GCCyclesCollectedMetric;
+use FrockDev\ToolsForLaravel\BaseMetrics\MemoryRAMGaugeSimpleMetric;
 use FrockDev\ToolsForLaravel\MetricsAbstractions\Renderers\CurrentNumberRenderer;
 use Illuminate\Console\Command;
 use Nette\PhpGenerator\ClassType;
@@ -12,7 +13,8 @@ class GenerateGrafanaMetrics extends Command
     protected $signature = 'frock:generate-grafana-metrics {appName?}';
 
     private array $predefinedMetrics = [
-        MemoryRAMGaugeMetric::class
+        MemoryRAMGaugeSimpleMetric::class,
+        GCCyclesCollectedMetric::class
     ];
 
     public function handle() {
@@ -201,7 +203,7 @@ class GenerateGrafanaMetrics extends Command
         $rowName = $this->getRowNameFromClassType($classType);
         $boardName = $this->getBoardNameFromClassType($classType, $appName);
         $buckets = $this->getBucketsFromClassType($classType);
-        $renderer = $this->getRendererFromClassType($classType);
+        $renderer = $this->getRendererFromClassType($classType)?? $this->getRendererFromClassByReflection($fullMetricClassName);
         $explodedMetricName = explode('_', $metricName);
         return [
             'className'=>$explodedMetricName[count($explodedMetricName)-1],
@@ -238,7 +240,7 @@ class GenerateGrafanaMetrics extends Command
             $rowName = $this->getRowNameFromClassType($classType);
             $boardName = $this->getBoardNameFromClassType($classType, $appName);
             $buckets = $this->getBucketsFromClassType($classType);
-            $renderer = $this->getRendererFromClassType($classType);
+            $renderer = $this->getRendererFromClassType($classType)?? $this->getRendererFromClassByReflection($fullMetricClassName);
             $result[$metricName.'_'.$className] = [
                 'className'=>$className,
                 'fullClassName'=>$fullMetricClassName,
@@ -382,10 +384,19 @@ class GenerateGrafanaMetrics extends Command
         return $buckets;
     }
 
+    private function getRendererFromClassByReflection(string $fullClassName) {
+        $reflectionClass = new \ReflectionClass($fullClassName);
+        $constant = $reflectionClass->getConstant('RENDERER');
+        if ($constant===false) {
+            throw new \Exception('Check Metrics. There is no RENDERER constant in '.$fullClassName);
+        }
+        return $constant;
+    }
+
     private function getRendererFromClassType(ClassType $classType)
     {
         if (!$classType->hasConstant('RENDERER') || $classType->getConstant('RENDERER')->getValue()==='') {
-            return CurrentNumberRenderer::class;
+            return null;
         }
         return $classType->getConstant('RENDERER')->getValue();
     }
