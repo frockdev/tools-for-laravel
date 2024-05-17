@@ -90,6 +90,19 @@ class SystemMetricsProcess extends AbstractProcess
                     }
                 })->runWithClonedDiContainer();
         }
+
+        if (env('EXIT_ON_OOM')==1) {
+            Co::define($this->getName() . '_OOM_EXITER')
+                ->charge(function () use ($allowedMemoryUsage) {
+                    while (true) {
+                        if (memory_get_usage() / 1024 / 1024 > $allowedMemoryUsage) {
+                            ContextStorage::getSystemChannel('exitChannel')->push(\Swow\Signal::TERM);
+                        }
+                        sleep(30);
+                    }
+                })->runWithClonedDiContainer();
+        }
+
         return false;
     }
 }
