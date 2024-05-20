@@ -22,7 +22,7 @@ Swow\Coroutine::run(function() use ($autoloaderPath) {
 
     $restartablePath = [];
     $restartablePath[] = $baseDir.'/public/';
-    $restartablePath[] = $baseDir.'/../phpProto/';
+    $restartablePath[] = $baseDir.'/../protoPhp/';
     $restartablePath[] = $baseDir.'/bootstrap/';
     $restartablePath[] = $baseDir.'/database/';
     $restartablePath[] = $baseDir.'/../packages/frock/';
