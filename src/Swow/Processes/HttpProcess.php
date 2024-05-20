@@ -25,9 +25,14 @@ use Symfony\Component\HttpFoundation\File\File;
 class HttpProcess extends AbstractProcess
 {
 
-    private function ifTryingToGetFilesFromBuild($request): bool
+    private function ifTryingToGetFilesFromBuildOrVendor($request): bool
     {
-        return str_starts_with($request->getUri()->getPath(), '/build');
+        if (str_starts_with($request->getUri()->getPath(), '/build')) {
+            return true;
+        } elseif (str_starts_with($request->getUri()->getPath(), '/vendor')) {
+            return true;
+        }
+        return false;
     }
 
     protected function run(): bool
@@ -48,7 +53,7 @@ class HttpProcess extends AbstractProcess
                         ->charge(function: function (ServerConnection $connection): void {
                             try {
                                 $request = $connection->recvHttpRequest();
-                                $tryingGetFilesFromBuild = $this->ifTryingToGetFilesFromBuild($request);
+                                $tryingGetFilesFromBuild = $this->ifTryingToGetFilesFromBuildOrVendor($request);
                                 if ($tryingGetFilesFromBuild) {
                                     $swowResponse = new \Swow\Psr7\Message\Response();
                                     if (file_exists(public_path($request->getUri()->getPath()))) {
