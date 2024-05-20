@@ -3,8 +3,8 @@
 namespace FrockDev\ToolsForLaravel\Swow\Processes;
 
 use FrockDev\ToolsForLaravel\ExceptionHandlers\CommonErrorHandler;
+use FrockDev\ToolsForLaravel\Support\HttpHelperFunctions;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestFinished;
-use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\ContextStorage;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
@@ -54,9 +54,10 @@ class RpcHttpProcess extends AbstractProcess
                                             'REQUEST_METHOD'=> $request->getMethod(),
                                             'QUERY_STRING'=> $request->getUri()->getQuery(),
                                         ], $request->getServerParams(), $convertedHeaders);
+                                        $parsedBody = HttpHelperFunctions::buildNestedArrayFromParsedBody($request->getParsedBody());
                                         $symfonyRequest = new \Symfony\Component\HttpFoundation\Request(
                                             query: $request->getQueryParams(),
-                                            request: $request->getParsedBody(),
+                                            request: $parsedBody,
                                             attributes: $request->getAttributes(),
                                             cookies: $request->getCookieParams(),
                                             files: $request->getUploadedFiles(),
