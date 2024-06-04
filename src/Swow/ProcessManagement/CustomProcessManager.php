@@ -11,16 +11,16 @@ use FrockDev\ToolsForLaravel\Swow\Processes\ProcessesRegistry;
 
 class CustomProcessManager
 {
-    private Collector $colelctor;
+    private Collector $collector;
 
     public function __construct(Collector $colelctor)
     {
-        $this->colelctor = $colelctor;
+        $this->collector = $colelctor;
     }
 
     public function registerInitProcesses() {
         $registeredProcessesByNames = [];
-        $annotatedProcesses = $this->colelctor->getClassesByAnnotation(InitProcess::class);
+        $annotatedProcesses = $this->collector->getClassesByAnnotation(InitProcess::class);
         foreach ($annotatedProcesses as $className=>$annotationInfo) {
             /**
              * @var string $annotationClassName
@@ -45,7 +45,7 @@ class CustomProcessManager
 
     public function registerProcesses() {
         $registeredProcessesByNames = [];
-        $annotatedProcesses = $this->colelctor->getClassesByAnnotation(Process::class);
+        $annotatedProcesses = $this->collector->getClassesByAnnotation(Process::class);
         foreach ($annotatedProcesses as $className=>$annotationInfo) {
             /**
              * @var string $annotationClassName
