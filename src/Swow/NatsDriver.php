@@ -3,33 +3,28 @@
 namespace FrockDev\ToolsForLaravel\Swow;
 
 use Basis\Nats\Client;
-use Basis\Nats\Configuration;
 use Basis\Nats\Consumer\AckPolicy;
 use Basis\Nats\Consumer\DeliverPolicy;
 use Basis\Nats\Message\Payload;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestFinished;
 use FrockDev\ToolsForLaravel\Swow\CleanEvents\RequestStartedHandling;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
-use FrockDev\ToolsForLaravel\Swow\Liveness\Liveness;
-use FrockDev\ToolsForLaravel\Swow\Nats\NewNatsClient;
 use FrockDev\ToolsForLaravel\Transport\AbstractMessage;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use LogicException;
 use Psr\Log\LoggerInterface;
 use Swow\Channel;
 use Swow\Sync\WaitGroup;
 use Throwable;
 
-/**
- * @deprecated Use NewNatsClient instead
- *
- */
 class NatsDriver implements NatsDriverInterface
 {
+
     private Client $client;
 
     private string $name;
@@ -39,41 +34,28 @@ class NatsDriver implements NatsDriverInterface
     {
         $this->name = $name;
         $this->currentConfig = new \Basis\Nats\Configuration([
+            'reconnect'=>false, //пусть лучше процесс консьюминга целиком перезапустится
             'host'=>config('nats.host', env('NATS_HOST', 'nats.nats')),
             'port'=>(int)config('nats.port', env('NATS_PORT', 4222)),
             'user'=>config('nats.user', env('NATS_USER', '')),
             'pass'=>config('nats.pass', env('NATS_PASS', '')),
             'timeout'=>(float)config('nats.timeout', (float)env('NATS_TIMEOUT', 1)),
-//            'tlsCertFile'=>config('nats.tlsCertFile', env('NATS_TLS_CERT_FILE')),
-//            'tlsKeyFile'=>config('nats.tlsKeyFile', env('NATS_TLS_KEY_FILE')),
+            'tlsCertFile'=>config('nats.tlsCertFile', env('NATS_TLS_CERT_FILE')),
+            'tlsKeyFile'=>config('nats.tlsKeyFile', env('NATS_TLS_KEY_FILE')),
+            'tlsCaFile'=>config('nats.tlsCAFile', env('NATS_TLS_CA_FILE')),
         ]);
-//        $this->client = new NewNatsClient($this->currentConfig, $this->name);
         $this->client = new Client($this->currentConfig, app()->make(LoggerInterface::class));
     }
 
-    public function runReceiving(string $namePostfix=''): WaitGroup {
-        $group = new WaitGroup();
-        $group->add(1);
-        Co::define($this->name.'_nats_receiving_'.$namePostfix)
-            ->charge(function (WaitGroup $waitGroup) {
-            Log::info('NatsDriver: starting receiving messages natsReceiveChannel_'.$this->name);
-
-            try {
-                $this->client->setDelay(0.05, Configuration::DELAY_EXPONENTIAL);
-                $this->client->process();
-            } catch (Throwable $exception) {
-                Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
-                    'exception' => $exception,
-                ]);
-                Liveness::setLiveness($this->name, 500, 'Error got on receiving', Liveness::MODE_5_SEC);
-                throw $exception;
-            } finally {
-                $waitGroup->done();
-            }
-
-        })->args($group)->run();
-        return $group;
-
+    /**
+     * @deprecated
+     * @param string $namePostfix
+     * @return WaitGroup
+     * @throws \Exception
+     */
+    public function runReceiving(string $namePostfix = ''): WaitGroup
+    {
+        throw new \Exception('Not implemented');
     }
 
     public function publishToStream(string $streamName, string $subject, string|AbstractMessage $payload)
@@ -128,7 +110,7 @@ class NatsDriver implements NatsDriverInterface
         }
     }
 
-    public function runThroughKernel(string $subject, string $body, array $headers = [], ?string $queue=null, ?string $stream=null): \Symfony\Component\HttpFoundation\Response|\Illuminate\Http\Response
+    public function runThroughKernel(string $subject, string $body, array $headers = [], ?string $queue = null, ?string $stream = null): \Symfony\Component\HttpFoundation\Response|\Illuminate\Http\Response
     {
         try {
             if (!$stream) {
@@ -178,7 +160,8 @@ class NatsDriver implements NatsDriverInterface
         }
     }
 
-    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $periodInMicroseconds=null, $disableSpatieValidation = false, $deliverPolicy = DeliverPolicy::NEW, $ackPolicy = AckPolicy::NONE) {
+    public function subscribeToJetstreamWithEndpoint(string $subject, string $streamName, object $endpoint, $periodInMicroseconds = null, $disableSpatieValidation = false, $deliverPolicy = DeliverPolicy::NEW, $ackPolicy = AckPolicy::NONE)
+    {
         $controller = function (Request $request) use ($endpoint, $disableSpatieValidation) {
             $endpoint->setContext($request->headers->all());
             $inputType = $endpoint::ENDPOINT_INPUT_TYPE;
@@ -229,9 +212,35 @@ class NatsDriver implements NatsDriverInterface
         }
 
         try {
-            if (!is_null($periodInMicroseconds)) {
-            $consumer->setDelay($periodInMicroseconds);}
-            $consumer->handle($callback);
+            while (true) {
+                try {
+                    if (!is_null($periodInMicroseconds)) {
+                        $consumer->setIterations(1);
+                    }
+                    $consumer->handle(
+                        messageHandler: $callback,
+                        emptyHandler: function(?Payload $payload = null, ?string $replyTo = null) {
+                        if ($payload) {
+                            if ($payload->hasHeader('Status-Code')) {
+                                if ($payload->getHeader('Status-Code') != "200") {
+                                    throw new LogicException('NATS. Error code detected: ' . $payload->getHeader('Status-Code')
+                                        . ' '.$payload->getHeader('Status-Message'));
+                                }
+                            }
+                        }
+                    },
+                        ack: false);
+                    if (!is_null($periodInMicroseconds)) {
+                        usleep($periodInMicroseconds);
+                    }
+                } catch (LogicException $e) {
+                    if (str_starts_with($e->getMessage(), 'No handler for message')) {
+                        Log::info('NatsDriver: no handler for message: ' . $e->getMessage());
+                    }
+                }
+
+            }
+
         } catch (Throwable $exception) {
             Log::error('NatsDriver: error while processing message: ' . $exception->getMessage(), [
                 'exception' => $exception,
@@ -258,30 +267,56 @@ class NatsDriver implements NatsDriverInterface
             $result = $endpoint->__invoke($dto);
             return $result;
         };
-        $callback = function(Payload $payload) use ($subject, $queueName) {
-            $resultChannel = new Channel(1);
-            ContextStorage::set('x-trace-id', $payload->getHeader('x-trace-id')??uuid_create());
-            Co::define('subject_'.$subject.'_queue_'.($queueName??'').'_nats_routing_function')
-                ->charge(function($subject, $payload, $queue=null) use ($resultChannel) {
-                $resultChannel->push(
-                    $this->runThroughKernel(subject: $subject, body: $payload->body, headers: $payload->headers, queue: $queue)
-                );
-            })->args($subject, $payload, $queueName)
-                ->runWithClonedDiContainer();
-            return $resultChannel->pop();
-        };
-        try {
-            if (!$queueName) {
-                Route::post($subject, $controller);
-                $this->client->subscribe($subject, $callback);
-            } else {
-                Route::post($subject . '/' . $queueName, $controller);
-                $this->client->subscribeQueue($subject, $queueName, $callback);
-            }
-        } catch (Throwable $exception) {
-            throw $exception;
+        //////////
+        if (!$queueName) {
+            Route::post($subject, $controller);
+            $queueObject = $this->client->subscribe($subject);
+        } else {
+            Route::post($subject . '/' . $queueName, $controller);
+            $queueObject = $this->client->subscribeQueue($subject, $queueName);
         }
-        $waitGroup = $this->runReceiving();
-        $waitGroup->wait();
+        //////////
+
+        while (true) {
+            if (!($message = $queueObject->fetch())) {
+                usleep(200000);
+                continue;
+            }
+
+
+            $waitGroup = new WaitGroup();
+            $waitGroup->add();
+            Co::define('subject_'.$subject.'_queue_'.($queueName??'').'_nats_routing_function')
+                ->charge(function(string $subject, \Basis\Nats\Message\Msg $message, WaitGroup $waitGroup, ?string $queueName=null) use ($endpoint) {
+                    $result = $this->runThroughKernel(subject: $subject, body: $message->payload->body, headers: $message->payload->headers, queue: $queueName);
+
+                    $this->replyToIfNeeded($message, $result);
+
+                    $waitGroup->done();
+                })->args($subject, $message, $waitGroup, $queueName)
+                ->runWithClonedDiContainer();
+            $waitGroup->wait();
+        }
+    }
+
+    public function replyToIfNeeded(\Basis\Nats\Message\Msg $message, \Symfony\Component\HttpFoundation\Response $result) {
+        if ($message->replyTo) {
+            if ($result instanceof JsonResponse) {
+                $payloadObj = Payload::parse($result->getContent());
+                $payloadObj->headers = array_map(function ($header) {
+                    return $header[0];
+                }, $result->headers->all());
+            } elseif (is_string($result)) {
+                $payloadObj = Payload::parse($result);
+            } else {
+                $payloadObj = Payload::parse(json_encode($result));
+            }
+
+            $this->client->publish(
+                $message->replyTo,
+                $payloadObj,
+            );
+            Log::info('Replied to ' . $message->replyTo . ' with ' . $payloadObj->render());
+        }
     }
 }
