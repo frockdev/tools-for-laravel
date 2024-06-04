@@ -28,7 +28,7 @@ ContextStorage::setSystemChannel('exitChannel', $exitControlChannel);
 ContextStorage::setCurrentRoutineName('main');
 $laravelApp = $startSupport->initializeLaravel(realpath(dirname($GLOBALS['_composer_autoload_path']).'/../'));
 
-$startSupport->loadServices(); //load services depends on mode
+$startSupport->registerProcesses(); //load services depends on mode
 
 ProcessesRegistry::runRegisteredInitProcesses();
 ProcessesRegistry::runRegisteredProcesses();
