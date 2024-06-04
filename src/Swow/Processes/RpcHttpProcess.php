@@ -16,6 +16,7 @@ use Laravel\Octane\Events\RequestTerminated;
 use Swow\CoroutineException;
 use Swow\Errno;
 use Swow\Http\Protocol\ProtocolException;
+use Illuminate\Support\Facades\Log;
 use Swow\Psr7\Message\Response;
 use Swow\Psr7\Server\Server;
 use Swow\Socket;
@@ -31,6 +32,8 @@ class RpcHttpProcess extends AbstractProcess
 
         $server = new Server(Socket::TYPE_TCP);
         $server->bind($host, $port, $bindFlag)->listen();
+        Log::info('RPC HTTP server is starting...');
+        sleep(1);
         Co::define($this->name)->charge(function (Server $server, CommonErrorHandler $errorHandler) {
             while (true) {
                 try {

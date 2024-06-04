@@ -18,7 +18,7 @@ class ProcessesRegistry
     {
         /** @var AbstractProcess $process */
         foreach (self::$processes as $process) {
-            Log::debug('Running registered process: ' . $process->getName());
+            Log::info('Running registered process: ' . $process->getName());
             $process->runProcessInCoroutine();
         }
     }

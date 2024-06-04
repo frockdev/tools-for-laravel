@@ -6,7 +6,6 @@ use Basis\Nats\Consumer\AckPolicy;
 use Basis\Nats\Consumer\DeliverPolicy;
 use FrockDev\ToolsForLaravel\Swow\Co\Co;
 use FrockDev\ToolsForLaravel\Swow\NatsDriver;
-use FrockDev\ToolsForLaravel\Swow\NewNatsDriver;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Swow\Sync\WaitGroup;
@@ -48,7 +47,7 @@ class NatsJetStreamConsumerProcess extends AbstractProcess
         Co::define($this->name.'_JetstreamConsumerProcess'.$this->subject.'_'.$this->streamName.'_'.Str::random())
             ->charge(function (WaitGroup $group) {
                 try {
-                    $driver = new NewNatsDriver($this->subject.'_'.$this->streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
+                    $driver = new NatsDriver($this->subject.'_'.$this->streamName.'_'.Str::random()); //todo check working with singleton, but maybe change to separated connections
                     Log::info('Subscribing to JetStream stream '.$this->streamName.' with subject '.$this->subject.' and endpoint '.get_class($this->endpoint));
                     $driver->subscribeToJetstreamWithEndpoint(
                         subject: $this->subject,
