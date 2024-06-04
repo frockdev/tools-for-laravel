@@ -8,10 +8,12 @@ use FrockDev\ToolsForLaravel\Console\AddProtoClassMapToComposerJson;
 use FrockDev\ToolsForLaravel\Console\GenerateEndpoints;
 use FrockDev\ToolsForLaravel\Console\GenerateGrafanaMetrics;
 use FrockDev\ToolsForLaravel\Console\GenerateHttpFiles;
+use FrockDev\ToolsForLaravel\EventListeners\CacheClearListener;
 use FrockDev\ToolsForLaravel\Swow\Liveness\Storage;
 use FrockDev\ToolsForLaravel\Swow\Logging\Masko;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactory;
 use FrockDev\ToolsForLaravel\Swow\Metrics\MetricFactoryInterface;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Jaeger\Config;
 use OpenTracing\NoopTracer;
@@ -38,8 +40,10 @@ class FrockServiceProvider extends ServiceProvider
         $this->app->bind(MetricFactoryInterface::class, MetricFactory::class);
 
         // own laravel attributes collector
-        $collector = new Collector(app());
-        $collector->collect(app_path());
+        $this->app->singleton(Collector::class, function() {
+           return Collector::getInstance();
+        });
+
 
         $this->app->bind(Masko::class, function () {
             return Masko::getInstance();
@@ -72,6 +76,8 @@ class FrockServiceProvider extends ServiceProvider
 
     public function boot()
     {
+
+        Event::listen('cache:clearing', CacheClearListener::class);
 
         $this->publishes([
             __DIR__.'/../config/frock.php' => config_path('frock.php'),
