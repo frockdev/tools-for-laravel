@@ -94,9 +94,9 @@ class RpcHttpProcessManager
                 return $result;
             };
             if ($info['method']=='GET') {
-                Route::get($route, $function);
+                Route::get($route, $function)->middleware(call_user_func(get_class($endpoint).'::'. 'middleware'));
             } elseif($info['method']=='POST') {
-                Route::post($route, $function);
+                Route::post($route, $function)->middleware(call_user_func(get_class($endpoint).'::'. 'middleware'));
             } else {
                 throw new \Exception('We use only GET and POST with RPC.');
             }
