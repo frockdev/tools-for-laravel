@@ -279,8 +279,8 @@ class Collector
     private function addClassesFromRegisteredPackages(array $classes): array
     {
         foreach (self::$registeredPackagePaths as $path) {
-            $classes = $this->getFilesWithClassesRecursively($path);
-            foreach ($classes as $class) {
+            $classesGot = $this->getFilesWithClassesRecursively($path);
+            foreach ($classesGot as $class) {
                 $classes[] = $class;
             }
         }
