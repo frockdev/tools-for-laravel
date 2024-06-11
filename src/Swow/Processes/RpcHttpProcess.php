@@ -102,6 +102,7 @@ class RpcHttpProcess extends AbstractProcess
 
                                     break;
                                 } catch (\Throwable $e) {
+                                    Log::error($e->getMessage(), ['exception'=>$e]);
                                     $errorInfo = $errorHandler->handleError($e);
                                     $response = new Response();
                                     $response->setStatus($errorInfo->errorCode);
@@ -117,6 +118,15 @@ class RpcHttpProcess extends AbstractProcess
                                     $dispatcher->dispatch(new RequestFinished(ContextStorage::getApplication()));
                                 }
                             }
+                        } catch (\Throwable $e) {
+                            Log::error($e->getMessage(), ['exception'=>$e]);
+                            $errorInfo = $errorHandler->handleError($e);
+                            $response = new Response();
+                            $response->setStatus($errorInfo->errorCode);
+                            $response->addHeader('Content-Type', 'application/json');
+                            $response->addHeader('x-trace-id', ContextStorage::get('x-trace-id'));
+                            $response->setBody(json_encode($errorInfo->errorData));
+                            $connection->sendHttpResponse($response);
                         } finally {
                             $connection->close();
                             $dispatcher->dispatch(new RequestTerminated(ContextStorage::getMainApplication(), app(), $laravelRequest, $response));
