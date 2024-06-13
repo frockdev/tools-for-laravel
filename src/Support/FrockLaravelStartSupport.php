@@ -109,28 +109,35 @@ class FrockLaravelStartSupport
     }
 
     public function registerLoggerProcess() {
-        config(['logging.channels.custom'=> [
-            'driver' => 'custom',
-            'level'=>env('LOG_LEVEL', 'error'),
-            'via' => CustomLogger::class,
-        ]]);
-        config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER', ValuesMaskJsonFormatter::class)]);
-        config(['logging.default'=>'custom']);
+        if (env('LOG_CHANNEL')=='custom') {
+            config(['logging.channels.custom'=> [
+                'driver' => 'custom',
+                'level'=>env('LOG_LEVEL', 'error'),
+                'via' => CustomLogger::class,
+            ]]);
+            config(['logging.channels.stderr.formatter'=>env('LOG_STDERR_FORMATTER', ValuesMaskJsonFormatter::class)]);
+            config(['logging.default'=>'custom']);
+        }
         $channel = new Channel(1000);
         ContextStorage::setSystemChannel('log', $channel);
+        if (env('LOG_CHANNEL')=='custom') {
+            $driver = 'stderr';
+        } else {
+            $driver = env('LOG_CHANNEL', 'stderr');
+        }
         Co::define('main-logger')
-            ->charge(function($channel) {
+            ->charge(function($channel, $logChannel) {
             /** @var LogMessage $message */
             while ($message = $channel->pop()) {
                 if ($message->severity===null) continue;
                 Log
-                    ::driver('stderr')->log(
+                    ::driver($logChannel)->log(
                         $message->severity,
                         $message->message,
                         $message->context
                     );
             }
-        })->args($channel)->runWithClonedDiContainer();
+        })->args($channel, $driver)->runWithClonedDiContainer();
     }
 
     private function registerNatsProcesses()
