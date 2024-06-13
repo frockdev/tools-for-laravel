@@ -69,6 +69,7 @@ class RpcHttpProcess extends AbstractProcess
                                         );
                                         $laravelRequest = Request::createFromBase($symfonyRequest);
                                         $laravelRequest->headers->set('Accept', 'application/json');
+                                        $laravelRequest->headers->set('Content-Type', 'application/json');
                                         $dispatcher = app()->make(\Illuminate\Contracts\Events\Dispatcher::class);
                                         $dispatcher->dispatch(new RequestReceived(ContextStorage::getMainApplication(), app(), $laravelRequest));
                                         /** @var HttpKernelContract $kernel */
